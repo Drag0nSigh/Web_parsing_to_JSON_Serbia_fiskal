@@ -121,8 +121,10 @@ def get_system_stats(days: int = 7) -> Dict[str, Any]:
 def get_recent_logs(limit: int = 50) -> List[Dict[str, Any]]:
     """Получение последних логов"""
     try:
-        logs = db_manager.get_request_logs(limit=limit)
-        return [log.to_dict() for log in logs]
+        with db_manager.get_session() as session:
+            from .models import RequestLog
+            logs = session.query(RequestLog).order_by(RequestLog.created_at.desc()).limit(limit).all()
+            return [log.to_dict() for log in logs]
     except Exception as e:
         logger.error(f"❌ Ошибка получения последних логов: {e}")
         return []
@@ -131,10 +133,32 @@ def get_recent_logs(limit: int = 50) -> List[Dict[str, Any]]:
 def get_users_list(limit: int = 100) -> List[Dict[str, Any]]:
     """Получение списка пользователей"""
     try:
-        users = db_manager.get_all_users(limit=limit)
-        return [user.to_dict() for user in users]
+        with db_manager.get_session() as session:
+            from .models import User
+            users = session.query(User).order_by(User.created_at.desc()).limit(limit).all()
+            return [user.to_dict() for user in users]
     except Exception as e:
         logger.error(f"❌ Ошибка получения списка пользователей: {e}")
+        return []
+
+
+def get_request_logs(limit: int = 100, date_from: datetime = None, date_to: datetime = None) -> List[Dict[str, Any]]:
+    """Получение логов запросов с фильтрацией по дате"""
+    try:
+        with db_manager.get_session() as session:
+            from .models import RequestLog
+            query = session.query(RequestLog)
+            
+            if date_from:
+                query = query.filter(RequestLog.created_at >= date_from)
+            
+            if date_to:
+                query = query.filter(RequestLog.created_at <= date_to)
+            
+            logs = query.order_by(RequestLog.created_at.desc()).limit(limit).all()
+            return [log.to_dict() for log in logs]
+    except Exception as e:
+        logger.error(f"❌ Ошибка получения логов запросов: {e}")
         return []
 
 

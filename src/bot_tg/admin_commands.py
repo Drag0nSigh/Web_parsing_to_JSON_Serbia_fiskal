@@ -6,6 +6,7 @@
 """
 import os
 import sys
+import asyncio
 from pathlib import Path
 from datetime import datetime, date
 from telegram import Update
@@ -13,10 +14,23 @@ from telegram.ext import ContextTypes
 from dotenv import load_dotenv
 
 from utils.timing_decorator import async_timing_decorator
-from db.utils import get_recent_logs, get_users_list, get_system_stats, get_database_info
+from db.utils import get_recent_logs, get_users_list, get_system_stats, get_database_info, get_request_logs
 
 # Загружаем переменные окружения
 load_dotenv()
+
+
+def format_datetime(dt_string: str) -> str:
+    """Форматирование даты и времени в формат ДД.ММ.ГГ ЧЧ:ММ:СС"""
+    if not dt_string or dt_string == 'N/A':
+        return 'N/A'
+    
+    try:
+        # Парсим ISO формат
+        dt = datetime.fromisoformat(dt_string.replace('Z', '+00:00'))
+        return dt.strftime('%d.%m.%y %H:%M:%S')
+    except (ValueError, AttributeError):
+        return dt_string
 
 # ID администратора
 ADMIN_ID = int(os.getenv('ADMIN_ID', '0'))
@@ -36,9 +50,9 @@ async def admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     admin_commands = """
 🔧 <b>Административные команды:</b>
 
-📊 <b>Логи:</b>
-/admin_logs - все логи
-/admin_logs_2025-09-26 - логи за определенную дату
+  📊 <b>Логи:</b>
+  /admin_logs - все логи
+  /admin_logs_26_09_25 - логи за определенную дату
 
 👥 <b>Пользователи:</b>
 /admin_users - список пользователей
@@ -73,7 +87,7 @@ async def admin_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         message = "📝 **Последние логи запросов:**\n\n"
         
         for i, log in enumerate(logs[:20], 1):  # Показываем только первые 20
-            created_at = log.get('created_at', 'N/A')
+            created_at = format_datetime(log.get('created_at', 'N/A'))
             user_id = log.get('user_id', 'N/A')
             username = log.get('username', 'N/A')
             status = log.get('status', 'unknown')
@@ -97,13 +111,67 @@ async def admin_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 @async_timing_decorator
 async def admin_logs_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /admin_logs_YYYY-MM-DD - получение логов за определенную дату"""
+    """Команда /admin_logs_DD_MM_YY - получение логов за определенную дату"""
     if not is_admin(update.effective_user.id):
         await update.message.reply_text("❌ У вас нет прав администратора")
         return
     
-    # Заглушка - будет реализовано позже
-    await update.message.reply_text("🚧 Функция получения логов за дату будет реализована позже")
+    try:
+        # Извлекаем дату из команды
+        command_text = update.message.text
+        date_str = command_text.replace('/admin_logs_', '')
+        
+        # Парсим дату в формате DD_MM_YY
+        try:
+            date_obj = datetime.strptime(date_str, '%d_%m_%y')
+            # Преобразуем в ISO формат для поиска в БД
+            iso_date = date_obj.strftime('%Y-%m-%d')
+        except ValueError:
+            await update.message.reply_text("❌ Неверный формат даты. Используйте: /admin_logs_DD_MM_YY")
+            return
+        
+        # Получаем логи за указанную дату
+        from datetime import timedelta
+        
+        # Создаем диапазон дат (с 00:00:00 до 23:59:59)
+        date_start = datetime.combine(date_obj, datetime.min.time())
+        date_end = datetime.combine(date_obj, datetime.max.time())
+        
+        logs = get_request_logs(
+            limit=100,
+            date_from=date_start,
+            date_to=date_end
+        )
+        
+        if not logs:
+            await update.message.reply_text(f"📝 Логи за {date_str} не найдены")
+            return
+        
+        # Формируем сообщение
+        message = f"📝 **Логи за {date_str} ({len(logs)} записей):**\n\n"
+        
+        for i, log in enumerate(logs[:20], 1):  # Показываем только первые 20
+            created_at = format_datetime(log.get('created_at', 'N/A'))
+            user_id = log.get('user_id', 'N/A')
+            username = log.get('username', 'N/A')
+            status = log.get('status', 'unknown')
+            error_message = log.get('error_message', '')
+            
+            status_emoji = "✅" if status == 'success' else "❌"
+            message += f"{i}. {status_emoji} {created_at}\n"
+            message += f"   👤 ID: {user_id} | @{username}\n"
+            if error_message:
+                message += f"   ❌ Ошибка: {error_message[:50]}...\n\n"
+            else:
+                message += f"   📝 Статус: {status}\n\n"
+        
+        if len(logs) > 20:
+            message += f"... и еще {len(logs) - 20} записей"
+        
+        await update.message.reply_text(message, parse_mode='Markdown')
+        
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка получения логов за дату: {str(e)}")
 
 @async_timing_decorator
 async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -126,8 +194,8 @@ async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         for i, user in enumerate(users[:20], 1):  # Показываем только первых 20
             telegram_id = user.get('telegram_id', 'N/A')
             username = user.get('username', 'без_username')
-            created_at = user.get('created_at', 'N/A')
-            last_activity = user.get('last_activity', 'N/A')
+            created_at = format_datetime(user.get('created_at', 'N/A'))
+            last_activity = format_datetime(user.get('last_activity', 'N/A'))
             is_active = user.get('is_active', True)
             
             status_emoji = "🟢" if is_active else "🔴"
@@ -202,7 +270,7 @@ async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 📊 <b>Бот:</b>
 • Статус: ✅ Работает
 • Логов: {log_count} файлов
-• Время: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+• Время: {datetime.now().strftime('%d.%m.%y %H:%M:%S')}
         """
         
         await update.message.reply_text(status_message, parse_mode='HTML')
@@ -242,6 +310,13 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
             message += f"📅 **По дням:**\n"
             for day_stat in daily_stats[:5]:  # Показываем только последние 5 дней
                 date = day_stat.get('date', 'N/A')
+                # Преобразуем дату в формат ДД.ММ.ГГ
+                if date != 'N/A':
+                    try:
+                        date_obj = datetime.fromisoformat(date)
+                        date = date_obj.strftime('%d.%m.%y')
+                    except (ValueError, AttributeError):
+                        pass
                 requests = day_stat.get('total_requests', 0)
                 users = day_stat.get('unique_users', 0)
                 
@@ -257,3 +332,54 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         
     except Exception as e:
         await update.message.reply_text(f"❌ Ошибка получения статистики: {str(e)}")
+
+@async_timing_decorator
+async def admin_restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Команда /admin_restart - перезапуск бота"""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("❌ У вас нет прав администратора")
+        return
+    
+    try:
+        await update.message.reply_text("🔄 Перезапуск бота...")
+        
+        # Получаем путь к скрипту перезапуска
+        script_dir = Path(__file__).parent
+        restart_script = script_dir / "restart_bot.py"
+        
+        if not restart_script.exists():
+            await update.message.reply_text("❌ Скрипт перезапуска не найден")
+            return
+        
+        # Запускаем скрипт перезапуска в фоновом режиме
+        import subprocess
+        import sys
+        
+        process = subprocess.Popen(
+            [sys.executable, str(restart_script), "--restart"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=script_dir.parent.parent,  # Переходим в корень проекта
+            text=True,  # Используем текстовый режим
+            encoding='utf-8',  # Явно указываем кодировку
+            errors='replace'  # Заменяем нечитаемые символы
+        )
+        
+        # Ждем немного для завершения перезапуска
+        await asyncio.sleep(3)
+        
+        # Проверяем, что процесс завершился успешно
+        if process.poll() is None:
+            # Процесс еще работает, ждем еще
+            await asyncio.sleep(2)
+        
+        if process.returncode == 0:
+            await update.message.reply_text("✅ Бот успешно перезапущен")
+        else:
+            stdout, stderr = process.communicate()
+            # Поскольку мы используем text=True, stderr уже строка
+            error_msg = stderr if stderr else "Неизвестная ошибка"
+            await update.message.reply_text(f"❌ Ошибка перезапуска: {error_msg}")
+        
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ошибка при перезапуске: {str(e)}")

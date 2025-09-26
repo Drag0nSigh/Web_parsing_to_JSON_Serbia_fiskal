@@ -16,7 +16,7 @@ from utils.timing_decorator import timing_decorator, async_timing_decorator
 from db.utils import log_user_request, init_database
 from .admin_commands import (
     admin_start, admin_logs, admin_logs_date, admin_users, 
-    admin_test, admin_status, admin_stats, is_admin
+    admin_test, admin_status, admin_stats, admin_restart, is_admin
 )
 
 # Загружаем переменные окружения
@@ -192,15 +192,23 @@ def main() -> None:
     application.add_handler(CommandHandler("admin_test", admin_test))
     application.add_handler(CommandHandler("admin_status", admin_status))
     application.add_handler(CommandHandler("admin_stats", admin_stats))
+    application.add_handler(CommandHandler("admin_restart", admin_restart))
     
-    # Обработчик для команд с датой (admin_logs_YYYY-MM-DD)
-    application.add_handler(MessageHandler(filters.Regex(r'^/admin_logs_\d{4}-\d{2}-\d{2}$'), admin_logs_date))
+    # Обработчик для команд с датой (admin_logs_DD_MM_YY)
+    application.add_handler(MessageHandler(filters.Regex(r'^/admin_logs_\d{2}_\d{2}_\d{2}$'), admin_logs_date))
     
     # Добавляем обработчик ошибок
     application.add_error_handler(error_handler)
     
     # Запускаем бота
     logger.info("Бот запущен и ожидает сообщения...")
+    
+    # Очищаем webhook перед запуском polling
+    try:
+        application.bot.delete_webhook()
+        logger.info("✅ Webhook очищен")
+    except Exception as e:
+        logger.warning(f"⚠️ Не удалось очистить webhook: {e}")
     
     application.run_polling(allowed_updates=Update.ALL_TYPES)
 
