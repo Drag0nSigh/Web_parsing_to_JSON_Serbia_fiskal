@@ -13,6 +13,11 @@ from dotenv import load_dotenv
 
 from parser.fiscal_parser import parse_serbian_fiscal_url
 from utils.timing_decorator import timing_decorator, async_timing_decorator
+from db.utils import log_user_request, init_database
+from .admin_commands import (
+    admin_start, admin_logs, admin_logs_date, admin_users, 
+    admin_test, admin_status, admin_stats, is_admin
+)
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -46,20 +51,32 @@ def is_url(text: str) -> bool:
     return bool(url_pattern.match(text.strip()))
 
 @timing_decorator
-def log_request(user_id: int, username: str, total_sum: float, timestamp: str = None) -> None:
-    """Записывает информацию о запросе в лог файл (отдельный файл для каждого дня)"""
-    if timestamp is None:
+def log_request(user_id: int, username: str, status: str = 'success', 
+               error_message: str = None) -> None:
+    """Записывает информацию о запросе в базу данных"""
+    try:
+        # Логируем в базу данных
+        log_user_request(
+            user_id=user_id,
+            username=username,
+            status=status,
+            error_message=error_message
+        )
+        
+        # Также сохраняем в файл для совместимости
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
-    # Создаем имя файла с датой
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    log_filename = f"requests_log_{date_str}.txt"
-    log_file = log_dir / log_filename
-    
-    log_entry = f"{timestamp} | ID: {user_id} | @{username} | Сумма: {total_sum:.2f}\n"
-    
-    with open(log_file, 'a', encoding='utf-8') as f:
-        f.write(log_entry)
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        log_filename = f"requests_log_{date_str}.txt"
+        log_file = log_dir / log_filename
+        
+        status_emoji = "✅" if status == 'success' else "❌"
+        log_entry = f"{timestamp} | ID: {user_id} | @{username} | {status_emoji} {status}\n"
+        
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(log_entry)
+            
+    except Exception as e:
+        logger.error(f"❌ Ошибка логирования запроса: {e}")
 
 @async_timing_decorator
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -98,14 +115,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logger.info(f"Парсинг URL: {message_text}")
         result = parse_serbian_fiscal_url(message_text, headless=True)
         
-        # Извлекаем сумму из результата
-        total_sum = 0.0
-        if isinstance(result, list) and len(result) > 0:
-            receipt = result[0].get('ticket', {}).get('document', {}).get('receipt', {})
-            total_sum = receipt.get('totalSum', 0) / 100  # Конвертируем из копеек в рубли
-        
         # Записываем в лог
-        log_request(user_id, username, total_sum)
+        log_request(
+            user_id=user_id, 
+            username=username, 
+            status='success'
+        )
         
         # Отправляем результат
         await processing_msg.edit_text(
@@ -124,6 +139,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         
     except Exception as e:
         logger.error(f"Ошибка при парсинге: {e}")
+        
+        # Логируем ошибку
+        log_request(
+            user_id=user_id,
+            username=username,
+            status='error',
+            error_message=str(e)
+        )
+        
         await processing_msg.edit_text(
             f"❌ Ошибка при обработке ссылки:\n\n"
             f"🔍 {str(e)}\n\n"
@@ -146,12 +170,31 @@ def main() -> None:
     """Основная функция запуска бота"""
     logger.info("Запуск телеграм бота...")
     
+    # Инициализируем базу данных
+    logger.info("🔧 Инициализация базы данных...")
+    if not init_database():
+        logger.error("❌ Не удалось инициализировать базу данных")
+        logger.warning("⚠️ Бот будет работать без базы данных (только файловые логи)")
+    else:
+        logger.info("✅ База данных инициализирована")
+    
     # Создаем приложение
     application = Application.builder().token(TG_TOKEN).build()
     
     # Добавляем обработчики
     application.add_handler(CommandHandler("start", start))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    
+    # Административные команды
+    application.add_handler(CommandHandler("admin_start", admin_start))
+    application.add_handler(CommandHandler("admin_logs", admin_logs))
+    application.add_handler(CommandHandler("admin_users", admin_users))
+    application.add_handler(CommandHandler("admin_test", admin_test))
+    application.add_handler(CommandHandler("admin_status", admin_status))
+    application.add_handler(CommandHandler("admin_stats", admin_stats))
+    
+    # Обработчик для команд с датой (admin_logs_YYYY-MM-DD)
+    application.add_handler(MessageHandler(filters.Regex(r'^/admin_logs_\d{4}-\d{2}-\d{2}$'), admin_logs_date))
     
     # Добавляем обработчик ошибок
     application.add_error_handler(error_handler)
