@@ -41,6 +41,36 @@ class LogManager:
         filename = f"{log_type}_{today}.log"
         return self.log_dir / filename
     
+    def can_write_to_log_dir(self) -> bool:
+        """
+        Проверить, можем ли мы писать в папку логов
+        
+        Returns:
+            True если можем писать, False если нет
+        """
+        try:
+            # Проверяем права на запись
+            test_file = self.log_dir / "test_write.tmp"
+            test_file.touch()
+            test_file.unlink()
+            return True
+        except Exception:
+            return False
+    
+    def get_writable_file_path(self, filename: str) -> Optional[Path]:
+        """
+        Получить путь к файлу, в который можно писать
+        
+        Args:
+            filename: Имя файла
+            
+        Returns:
+            Path если можем писать, None если нет
+        """
+        if self.can_write_to_log_dir():
+            return self.log_dir / filename
+        return None
+    
     def setup_logging(self, log_type: str = "bot", level: int = logging.INFO) -> logging.Logger:
         """
         Настроить логирование для указанного типа
@@ -55,6 +85,18 @@ class LogManager:
         # Получаем путь к файлу лога
         log_file = self.get_daily_log_file(log_type)
         
+        # Убеждаемся, что папка существует и доступна для записи
+        try:
+            self.log_dir.mkdir(exist_ok=True)
+            # Проверяем права на запись
+            test_file = self.log_dir / "test_write.tmp"
+            test_file.touch()
+            test_file.unlink()
+        except Exception as e:
+            print(f"Ошибка доступа к папке логов {self.log_dir}: {e}")
+            # Если не можем писать в файл, используем только консоль
+            return self._setup_console_only_logging(log_type, level)
+        
         # Создаем логгер
         logger = logging.getLogger(log_type)
         logger.setLevel(level)
@@ -68,10 +110,13 @@ class LogManager:
         )
         
         # Обработчик для файла
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
-        file_handler.setLevel(level)
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
+        try:
+            file_handler = logging.FileHandler(log_file, encoding='utf-8')
+            file_handler.setLevel(level)
+            file_handler.setFormatter(formatter)
+            logger.addHandler(file_handler)
+        except Exception as e:
+            print(f"Не удалось создать файловый обработчик для {log_file}: {e}")
         
         # Обработчик для консоли
         console_handler = logging.StreamHandler()
@@ -82,6 +127,24 @@ class LogManager:
         # Отключаем распространение на корневой логгер
         logger.propagate = False
         
+        return logger
+    
+    def _setup_console_only_logging(self, log_type: str, level: int) -> logging.Logger:
+        """Настроить логирование только в консоль"""
+        logger = logging.getLogger(log_type)
+        logger.setLevel(level)
+        logger.handlers.clear()
+        
+        formatter = logging.Formatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        )
+        
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(level)
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+        
+        logger.propagate = False
         return logger
     
     def cleanup_old_logs(self) -> int:

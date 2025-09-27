@@ -279,14 +279,21 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         updated_limit_info = check_daily_limit(user_id)
         
         # Добавляем информацию о лимите в JSON
-        if isinstance(result, dict):
+        # Результат всегда должен быть списком, как ожидает программа
+        if isinstance(result, list):
+            # result уже список - используем его
             result_with_limit = result.copy()
+            # Добавляем мета-информацию в первый элемент списка
+            if result_with_limit and isinstance(result_with_limit[0], dict):
+                result_with_limit[0]['daily_requests'] = f"{updated_limit_info['current_count']}/{updated_limit_info['limit']}"
+                result_with_limit[0]['remaining_requests'] = updated_limit_info['remaining']
         else:
-            # Если result - это список, создаем словарь
-            result_with_limit = {'data': result}
-        
-        result_with_limit['daily_requests'] = f"{updated_limit_info['current_count']}/{updated_limit_info['limit']}"
-        result_with_limit['remaining_requests'] = updated_limit_info['remaining']
+            # Если result - это dict, оборачиваем в список
+            result_item = result.copy() if isinstance(result, dict) else result
+            if isinstance(result_item, dict):
+                result_item['daily_requests'] = f"{updated_limit_info['current_count']}/{updated_limit_info['limit']}"
+                result_item['remaining_requests'] = updated_limit_info['remaining']
+            result_with_limit = [result_item]
         
         # Отправляем результат
         await processing_msg.edit_text(

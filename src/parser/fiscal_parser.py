@@ -363,11 +363,18 @@ class FiscalParser:
         logger.info("🔍 Поиск товаров в HTML...")
         
         # Сохраняем HTML для отладки
-        debug_path = log_manager.get_daily_log_file("debug").with_suffix(".html")
+        debug_filename = f"debug_{datetime.now().strftime('%Y-%m-%d')}.html"
+        debug_path = log_manager.get_writable_file_path(debug_filename)
         
-        with open(debug_path, "w", encoding="utf-8") as f:
-            f.write(str(soup.prettify()))
-        logger.info(f"💾 HTML сохранен в {debug_path} для отладки")
+        if debug_path:
+            try:
+                with open(debug_path, "w", encoding="utf-8") as f:
+                    f.write(str(soup.prettify()))
+                logger.info(f"💾 HTML сохранен в {debug_path} для отладки")
+            except Exception as e:
+                logger.warning(f"⚠️ Не удалось сохранить HTML для отладки: {e}")
+        else:
+            logger.warning("⚠️ Нет доступа для записи файла отладки")
         
         # Метод 1: Ищем по Knockout.js биндингам
         items = self._extract_items_by_knockout_binding(soup)
@@ -746,79 +753,10 @@ class SerbianToRussianConverter:
         logger.debug(f"🔧 FiscalData после установки значений:")
         logger.debug(f"   ID: {fiscal_data.id}")
         logger.debug(f"   Created: {fiscal_data.created_at}")
+        logger.info(f"   FiscalData: {fiscal_data}")
         
         return fiscal_data
 
-def create_serbian_data_with_items():
-    """Создание сербских данных с товарами вручную"""
-    
-    # Товары из вашего примера
-    items = [
-        {
-            'name': 'Dečiji jog.DUO-NEO/KOM/0216130',
-            'quantity': Decimal('1.00'),
-            'price': Decimal('79.99'),
-            'sum': Decimal('79.99'),
-            'nds_type': 2,  # 10%
-            'tax_base': Decimal('72.72'),
-            'vat_amount': Decimal('7.27'),
-            'label': 'Е'
-        },
-        {
-            'name': 'Jogurt sa čok.i ban./KOM/0200385',
-            'quantity': Decimal('1.00'),
-            'price': Decimal('79.99'),
-            'sum': Decimal('79.99'),
-            'nds_type': 3,  # 20%
-            'tax_base': Decimal('66.66'),
-            'vat_amount': Decimal('13.33'),
-            'label': 'Ђ'
-        },
-        {
-            'name': 'Fil.los. sa kož./KOM/0218373',
-            'quantity': Decimal('1.00'),
-            'price': Decimal('1599.99'),
-            'sum': Decimal('1599.99'),
-            'nds_type': 2,  # 10%
-            'tax_base': Decimal('1454.54'),
-            'vat_amount': Decimal('145.45'),
-            'label': 'Е'
-        },
-        {
-            'name': 'Dečiji jogurt DUO-dr/KOM/0216130',
-            'quantity': Decimal('1.00'),
-            'price': Decimal('79.99'),
-            'sum': Decimal('79.99'),
-            'nds_type': 2,  # 10%
-            'tax_base': Decimal('72.72'),
-            'vat_amount': Decimal('7.27'),
-            'label': 'Е'
-        }
-    ]
-    
-    # Создаем сербские данные
-    serbian_data = SerbianFiscalData(
-        tin="106884584",
-        shop_name="1228831-Prodavnica br. 0156",
-        shop_address="БУЛЕВАР ДЕСПОТА СТЕФАНА 99",
-        city="БЕОГРАД (ПАЛИЛУЛА)",
-        administrative_unit="",
-        invoice_number="88856",
-        total_amount=Decimal("1839.96"),
-        transaction_type_counter=87369,
-        total_counter=88856,
-        invoice_counter_extension="",
-        signed_by="",
-        sdc_date_time=datetime.now(),
-        buyer_id=None,
-        requested_by="",
-        invoice_type="",
-        transaction_type="",
-        status="",
-        items=items
-    )
-    
-    return serbian_data
 
 def convert_to_russian_format(serbian_data):
     """Конвертация в российский формат"""
