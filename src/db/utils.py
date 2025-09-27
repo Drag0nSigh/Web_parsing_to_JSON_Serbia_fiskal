@@ -236,9 +236,14 @@ def get_user_daily_requests_count(user_id: int) -> int:
         logger.error(f"❌ Ошибка получения количества дневных запросов для пользователя {user_id}: {e}")
         return 0
 
-def check_daily_limit(user_id: int, limit: int = 20) -> dict:
+def check_daily_limit(user_id: int, limit: int = None) -> dict:
     """Проверяет, не превышен ли дневной лимит запросов"""
     try:
+        # Получаем лимит из переменной окружения, если не передан явно
+        if limit is None:
+            import os
+            limit = int(os.getenv('DAILY_REQUEST_LIMIT', '50'))
+        
         current_count = get_user_daily_requests_count(user_id)
         
         return {

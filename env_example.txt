@@ -15,3 +15,6 @@ ADMIN_ID=your_admin_telegram_id_here
 # Настройки логирования
 LOG_RETENTION_DAYS=30
 
+# Настройки лимитов
+DAILY_REQUEST_LIMIT=50
+

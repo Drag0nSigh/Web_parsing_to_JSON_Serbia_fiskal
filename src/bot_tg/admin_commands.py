@@ -254,6 +254,9 @@ async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         log_manager = get_log_manager()
         log_stats = log_manager.get_log_stats()
         
+        # Получаем лимит запросов
+        daily_limit = int(os.getenv('DAILY_REQUEST_LIMIT', '50'))
+        
         status_message = f"""
 🖥️ <b>Статус системы:</b>
 
@@ -267,6 +270,7 @@ async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 • Статус: ✅ Работает
 • Логов: {log_stats['total_files']} файлов ({log_stats['total_size'] / 1024:.1f} KB)
 • Хранение: {log_stats['retention_days']} дней
+• Лимит запросов: {daily_limit}/день
 • Время: {datetime.now().strftime('%d.%m.%y %H:%M:%S')}
         """
         
