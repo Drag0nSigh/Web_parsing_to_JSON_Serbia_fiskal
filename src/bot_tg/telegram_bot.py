@@ -13,7 +13,8 @@ from db.utils import init_database
 from utils.timing_decorator import timing_decorator, async_timing_decorator
 from .admin_commands import (
     admin_start, admin_logs, admin_logs_date, admin_users, 
-    admin_test, admin_status, admin_stats, send_message_to_user, is_admin, ADMIN_ID
+    admin_test, admin_status, admin_stats, send_message_to_user, 
+    activate_user_command, deactivate_user_command, is_admin
 )
 from .user_commands import start, help_command, admin_message, handle_message
 
@@ -53,6 +54,10 @@ def create_admin_menu() -> InlineKeyboardMarkup:
         [
             InlineKeyboardButton("📨 Отправить", callback_data="admin_send_message"),
             InlineKeyboardButton("📈 Статус", callback_data="admin_status")
+        ],
+        [
+            InlineKeyboardButton("✅ Активировать", callback_data="admin_activate"),
+            InlineKeyboardButton("🚫 Деактивировать", callback_data="admin_deactivate")
         ]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -295,6 +300,55 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 await query.edit_message_text(f"❌ Ошибка получения статуса: {str(e)}", reply_markup=create_admin_menu())
         else:
             await query.edit_message_text("❌ У вас нет прав администратора", reply_markup=create_main_menu())
+            
+    elif query.data == "admin_activate":
+        if is_admin(user_id):
+            activate_text = """
+✅ <b>Активация пользователя</b>
+
+<b>Использование:</b>
+<code>/activate ID_пользователя</code>
+
+<b>Примеры:</b>
+• <code>/activate 123456789</code>
+• <code>/activate 987654321</code>
+
+<b>Как узнать ID пользователя:</b>
+• Используйте кнопку "👥 Пользователи" в админ меню
+• ID отображается в списке пользователей
+
+<b>Примечание:</b>
+• Активированный пользователь сможет использовать парсинг ссылок
+• Если пользователь уже активен, будет показано соответствующее сообщение
+            """
+            await query.edit_message_text(activate_text, parse_mode='HTML', reply_markup=create_admin_menu())
+        else:
+            await query.edit_message_text("❌ У вас нет прав администратора", reply_markup=create_main_menu())
+            
+    elif query.data == "admin_deactivate":
+        if is_admin(user_id):
+            deactivate_text = """
+🚫 <b>Деактивация пользователя</b>
+
+<b>Использование:</b>
+<code>/deactivate ID_пользователя</code>
+
+<b>Примеры:</b>
+• <code>/deactivate 123456789</code>
+• <code>/deactivate 987654321</code>
+
+<b>Как узнать ID пользователя:</b>
+• Используйте кнопку "👥 Пользователи" в админ меню
+• ID отображается в списке пользователей
+
+<b>Примечание:</b>
+• Деактивированный пользователь не сможет использовать парсинг ссылок
+• Администраторы не могут быть деактивированы
+• Если пользователь уже неактивен, будет показано соответствующее сообщение
+            """
+            await query.edit_message_text(deactivate_text, parse_mode='HTML', reply_markup=create_admin_menu())
+        else:
+            await query.edit_message_text("❌ У вас нет прав администратора", reply_markup=create_main_menu())
     
     # Убираем callback из списка обрабатываемых
     if hasattr(context, 'processing_callbacks'):
@@ -354,6 +408,8 @@ def main() -> None:
     application.add_handler(CommandHandler("admin_test", admin_test))
     application.add_handler(CommandHandler("admin_status", admin_status))
     application.add_handler(CommandHandler("admin_stats", admin_stats))
+    application.add_handler(CommandHandler("activate", activate_user_command))
+    application.add_handler(CommandHandler("deactivate", deactivate_user_command))
     
     # Обработчик для команд с датой (admin_logs_DD_MM_YY)
     application.add_handler(MessageHandler(filters.Regex(r'^/admin_logs_\d{2}_\d{2}_\d{2}$'), admin_logs_date))

@@ -7,6 +7,7 @@
 import os
 import sys
 import asyncio
+import logging
 from pathlib import Path
 from datetime import datetime, date
 from telegram import Update
@@ -14,7 +15,10 @@ from telegram.ext import ContextTypes
 from dotenv import load_dotenv
 
 from utils.timing_decorator import async_timing_decorator
-from db.utils import get_recent_logs, get_users_list, get_system_stats, get_database_info, get_request_logs, log_message
+from db.utils import get_recent_logs, get_users_list, get_system_stats, get_database_info, get_request_logs, log_message, get_username_by_id, activate_user, deactivate_user, is_user_active
+
+# Настройка логирования
+logger = logging.getLogger(__name__)
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -33,17 +37,17 @@ def format_datetime(dt_string: str) -> str:
         return dt_string
 
 # ID администратора
-ADMIN_ID = int(os.getenv('ADMIN_ID', '0'))
+admin_id = int(os.getenv('ADMIN_ID', '0'))
 
 def is_admin(user_id: int) -> bool:
     """Проверяет, является ли пользователь администратором"""
-    return user_id == ADMIN_ID
+    return user_id == admin_id
 
 @async_timing_decorator
 async def admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /admin_start - приветствие для администратора"""
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text(f"User {update.effective_user.id} is not admin, admin_id: {ADMIN_ID}")
+        await update.message.reply_text(f"User {update.effective_user.id} is not admin, admin_id: {admin_id}")
         await update.message.reply_text("❌ У вас нет прав администратора")
         return
     
@@ -357,6 +361,7 @@ async def send_message_to_user(update: Update, context: ContextTypes.DEFAULT_TYP
         # Извлекаем ID пользователя и текст сообщения
         target_user_id = int(context.args[0])
         message_text = ' '.join(context.args[1:])
+        target_username = get_username_by_id(target_user_id)
         
         # Отправляем сообщение пользователю
         await context.bot.send_message(
@@ -366,7 +371,7 @@ async def send_message_to_user(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         
         # Логируем сообщение в базу данных
-        log_message(target_user_id, f"user_{target_user_id}", 'admin_to_user', 'admin_response')
+        log_message(user_id, target_user_id, username, f"{target_username}", 'admin_to_user', 'admin_response')
         
         # Подтверждаем отправку администратору
         await update.message.reply_text(
@@ -405,3 +410,162 @@ async def send_message_to_user(update: Update, context: ContextTypes.DEFAULT_TYP
                 f"Ошибка: {error_msg}"
             )
         logger.error(f"❌ Ошибка отправки сообщения админом {username}: {e}")
+
+
+@async_timing_decorator
+async def activate_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработчик команды /activate - активация пользователя"""
+    user_id = update.effective_user.id
+    username = update.effective_user.username or "без_username"
+    
+    # Проверяем права администратора
+    if not is_admin(user_id):
+        await update.message.reply_text("❌ У вас нет прав администратора")
+        return
+    
+    # Получаем аргументы команды
+    if not context.args or len(context.args) < 1:
+        await update.message.reply_text(
+            "✅ <b>Активация пользователя</b>\n\n"
+            "Использование: <code>/activate ID_пользователя</code>\n\n"
+            "Пример: <code>/activate 123456789</code>",
+            parse_mode='HTML'
+        )
+        return
+    
+    try:
+        # Извлекаем ID пользователя
+        target_user_id = int(context.args[0])
+        target_username = get_username_by_id(target_user_id)
+        
+        # Проверяем текущий статус
+        current_status = is_user_active(target_user_id)
+        
+        if current_status:
+            await update.message.reply_text(
+                f"ℹ️ <b>Пользователь уже активен</b>\n\n"
+                f"👤 <b>Пользователь:</b> @{target_username} (ID: {target_user_id})\n"
+                f"✅ <b>Статус:</b> Активен",
+                parse_mode='HTML'
+            )
+            return
+        
+        # Активируем пользователя
+        success = activate_user(target_user_id)
+        
+        if success:
+            # Логируем действие
+            log_message(user_id, target_user_id, username, target_username, 'admin_action', 'user_activated')
+            
+            await update.message.reply_text(
+                f"✅ <b>Пользователь активирован!</b>\n\n"
+                f"👤 <b>Пользователь:</b> @{target_username} (ID: {target_user_id})\n"
+                f"🔄 <b>Статус:</b> Неактивен → Активен",
+                parse_mode='HTML'
+            )
+            
+            logger.info(f"✅ Админ {username} (ID: {user_id}) активировал пользователя {target_username} (ID: {target_user_id})")
+        else:
+            await update.message.reply_text(
+                f"❌ <b>Ошибка активации пользователя</b>\n\n"
+                f"Пользователь с ID {target_user_id} не найден или произошла ошибка.",
+                parse_mode='HTML'
+            )
+        
+    except ValueError:
+        await update.message.reply_text(
+            "❌ <b>Ошибка в ID пользователя</b>\n\n"
+            "ID должен быть числом.\n"
+            "Пример: <code>/activate 123456789</code>",
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        await update.message.reply_text(
+            f"❌ <b>Ошибка активации пользователя</b>\n\n"
+            f"Ошибка: {str(e)}"
+        )
+        logger.error(f"❌ Ошибка активации пользователя админом {username}: {e}")
+
+
+@async_timing_decorator
+async def deactivate_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработчик команды /deactivate - деактивация пользователя"""
+    user_id = update.effective_user.id
+    username = update.effective_user.username or "без_username"
+    
+    # Проверяем права администратора
+    if not is_admin(user_id):
+        await update.message.reply_text("❌ У вас нет прав администратора")
+        return
+    
+    # Получаем аргументы команды
+    if not context.args or len(context.args) < 1:
+        await update.message.reply_text(
+            "🚫 <b>Деактивация пользователя</b>\n\n"
+            "Использование: <code>/deactivate ID_пользователя</code>\n\n"
+            "Пример: <code>/deactivate 123456789</code>",
+            parse_mode='HTML'
+        )
+        return
+    
+    try:
+        # Извлекаем ID пользователя
+        target_user_id = int(context.args[0])
+        target_username = get_username_by_id(target_user_id)
+        
+        # Проверяем, не пытаемся ли деактивировать админа
+        if is_admin(target_user_id):
+            await update.message.reply_text(
+                "❌ <b>Нельзя деактивировать администратора</b>\n\n"
+                "Администраторы не могут быть деактивированы.",
+                parse_mode='HTML'
+            )
+            return
+        
+        # Проверяем текущий статус
+        current_status = is_user_active(target_user_id)
+        
+        if not current_status:
+            await update.message.reply_text(
+                f"ℹ️ <b>Пользователь уже неактивен</b>\n\n"
+                f"👤 <b>Пользователь:</b> @{target_username} (ID: {target_user_id})\n"
+                f"🚫 <b>Статус:</b> Неактивен",
+                parse_mode='HTML'
+            )
+            return
+        
+        # Деактивируем пользователя
+        success = deactivate_user(target_user_id)
+        
+        if success:
+            # Логируем действие
+            log_message(user_id, target_user_id, username, target_username, 'admin_action', 'user_deactivated')
+            
+            await update.message.reply_text(
+                f"🚫 <b>Пользователь деактивирован!</b>\n\n"
+                f"👤 <b>Пользователь:</b> @{target_username} (ID: {target_user_id})\n"
+                f"🔄 <b>Статус:</b> Активен → Неактивен",
+                parse_mode='HTML'
+            )
+            
+            logger.info(f"🚫 Админ {username} (ID: {user_id}) деактивировал пользователя {target_username} (ID: {target_user_id})")
+        else:
+            await update.message.reply_text(
+                f"❌ <b>Ошибка деактивации пользователя</b>\n\n"
+                f"Пользователь с ID {target_user_id} не найден или произошла ошибка.",
+                parse_mode='HTML'
+            )
+        
+    except ValueError:
+        await update.message.reply_text(
+            "❌ <b>Ошибка в ID пользователя</b>\n\n"
+            "ID должен быть числом.\n"
+            "Пример: <code>/deactivate 123456789</code>",
+            parse_mode='HTML'
+        )
+    except Exception as e:
+        await update.message.reply_text(
+            f"❌ <b>Ошибка деактивации пользователя</b>\n\n"
+            f"Ошибка: {str(e)}"
+        )
+        logger.error(f"❌ Ошибка деактивации пользователя админом {username}: {e}")

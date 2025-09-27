@@ -70,8 +70,10 @@ class MessageLog(Base):
     __tablename__ = 'message_logs'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(BigInteger, nullable=False, index=True)
-    username = Column(String(255), nullable=True)
+    sender_user_id = Column(BigInteger, nullable=False, index=True)
+    recipient_user_id = Column(BigInteger, nullable=False, index=True)
+    sender_username = Column(String(255), nullable=True)
+    recipient_username = Column(String(255), nullable=True)
     direction = Column(String(20), nullable=False)  # 'user_to_admin' или 'admin_to_user'
     message_type = Column(String(50), nullable=False)  # 'blocked_user_message', 'admin_response', etc.
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -83,8 +85,10 @@ class MessageLog(Base):
         """Преобразование в словарь"""
         return {
             'id': self.id,
-            'user_id': self.user_id,
-            'username': self.username,
+            'sender_user_id': self.sender_user_id,
+            'recipient_user_id': self.recipient_user_id,
+            'sender_username': self.username,
+            'recipient_username': self.recipient_username,
             'direction': self.direction,
             'message_type': self.message_type,
             'created_at': self.created_at.isoformat() if self.created_at else None

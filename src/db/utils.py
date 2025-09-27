@@ -258,19 +258,28 @@ def check_daily_limit(user_id: int, limit: int = 20) -> dict:
         }
 
 
-def log_message(user_id: int, username: str, direction: str, message_type: str) -> None:
+def log_message(
+        sender_user_id: int,
+        recipient_user_id: int,
+        sender_username: str,
+        recipient_username: str,
+        direction: str,
+        message_type: str
+) -> None:
     """Логирование сообщения между пользователем и администратором"""
     try:
         with db_manager.get_session() as session:
             message_log = MessageLog(
-                user_id=user_id,
-                username=username,
+                sender_user_id=sender_user_id,
+                recipient_user_id=recipient_user_id,
+                sender_username=sender_username,
+                recipient_username=recipient_username,
                 direction=direction,
                 message_type=message_type
             )
             session.add(message_log)
             session.commit()
-            logger.info(f"📝 Сообщение {direction} от пользователя {user_id} записано в лог")
+            logger.info(f"📝 Сообщение {direction} от пользователя {sender_user_id} записано в лог")
     except Exception as e:
         logger.error(f"❌ Ошибка записи сообщения в лог: {e}")
 
@@ -280,7 +289,7 @@ def has_sent_blocked_message(user_id: int) -> bool:
     try:
         with db_manager.get_session() as session:
             count = session.query(MessageLog).filter(
-                MessageLog.user_id == user_id,
+                MessageLog.sender_user_id == user_id,
                 MessageLog.direction == 'user_to_admin',
                 MessageLog.message_type == 'blocked_user_message'
             ).count()
@@ -294,7 +303,7 @@ def get_user_message_count(user_id: int, direction: str = None) -> int:
     """Получить количество сообщений пользователя (всех или определенного направления)"""
     try:
         with db_manager.get_session() as session:
-            query = session.query(MessageLog).filter(MessageLog.user_id == user_id)
+            query = session.query(MessageLog).filter(MessageLog.sender_user_id == user_id)
             if direction:
                 query = query.filter(MessageLog.direction == direction)
             return query.count()
@@ -314,3 +323,43 @@ def is_user_active(user_id: int) -> bool:
     except Exception as e:
         logger.error(f"❌ Ошибка проверки статуса пользователя {user_id}: {e}")
         return True  # В случае ошибки считаем активным
+
+
+def get_username_by_id(user_id: int) -> str:
+    """Получает username по id"""
+    try:
+        with db_manager.get_session() as session:
+            user = session.query(User).filter(User.telegram_id == user_id).first()
+            return user.username if user else f"user_{user_id}"
+    except Exception as e:
+        logger.error(f"❌ Ошибка получения username пользователя {user_id}: {e}")
+        return f"user_{user_id}"
+
+
+def set_user_active_status(user_id: int, is_active: bool) -> bool:
+    """Устанавливает статус активности пользователя"""
+    try:
+        with db_manager.get_session() as session:
+            user = session.query(User).filter(User.telegram_id == user_id).first()
+            if user:
+                user.is_active = is_active
+                user.last_activity = datetime.utcnow()
+                session.commit()
+                logger.info(f"✅ Статус пользователя {user_id} изменен на {'активен' if is_active else 'неактивен'}")
+                return True
+            else:
+                logger.warning(f"⚠️ Пользователь {user_id} не найден")
+                return False
+    except Exception as e:
+        logger.error(f"❌ Ошибка изменения статуса пользователя {user_id}: {e}")
+        return False
+
+
+def activate_user(user_id: int) -> bool:
+    """Активирует пользователя"""
+    return set_user_active_status(user_id, True)
+
+
+def deactivate_user(user_id: int) -> bool:
+    """Деактивирует пользователя"""
+    return set_user_active_status(user_id, False)

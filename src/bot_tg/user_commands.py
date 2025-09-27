@@ -3,15 +3,22 @@
 """
 import json
 import re
+import os
+import logging
 from datetime import datetime
 from telegram import Update
 from telegram.ext import ContextTypes
 
 from parser.fiscal_parser import parse_serbian_fiscal_url
 from utils.timing_decorator import async_timing_decorator
-from db.utils import log_user_request, check_daily_limit, log_request, is_user_active, has_sent_blocked_message, log_message
+from db.utils import log_user_request, check_daily_limit, log_user_request, is_user_active, has_sent_blocked_message, log_message
 from .admin_commands import is_admin
 
+# Настройка логирования
+logger = logging.getLogger(__name__)
+
+# ID администратора
+admin_id = int(os.getenv('ADMIN_ID', '0'))
 
 @async_timing_decorator
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -159,7 +166,6 @@ async def admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         
         # Отправляем сообщение администратору
         try:
-            from .admin_commands import ADMIN_ID
             
             # Определяем тип сообщения
             is_blocked = not is_user_active(user_id)
@@ -176,13 +182,13 @@ async def admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             """
             
             await context.bot.send_message(
-                chat_id=ADMIN_ID,
+                chat_id=admin_id,
                 text=admin_message_text,
                 parse_mode='HTML'
             )
             
             # Логируем сообщение
-            log_message(user_id, username, 'user_to_admin', message_type)
+            log_message(user_id, admin_id, username, 'admin', 'user_to_admin', message_type)
             
             # Если пользователь заблокирован, сообщаем что это последнее сообщение
             if is_blocked:
@@ -268,7 +274,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         result = parse_serbian_fiscal_url(message_text, headless=True)
         
         # Записываем в лог
-        log_request(
+        log_user_request(
             user_id=user_id, 
             username=username, 
             status='success'
@@ -307,7 +313,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logger.error(f"Ошибка при парсинге: {e}")
         
         # Логируем ошибку
-        log_request(
+        log_user_request(
             user_id=user_id,
             username=username,
             status='error'
