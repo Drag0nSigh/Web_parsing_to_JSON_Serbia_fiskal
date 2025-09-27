@@ -32,8 +32,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем исходный код проекта
 COPY src/ .
 
+# Создаем папку для логов
+RUN mkdir -p /app/log
+
 # Создаем пользователя для безопасности
-RUN adduser -D -s /bin/sh appuser && chown -R appuser:appuser /app
+RUN adduser -D -s /bin/sh appuser
+
+# Даем права на папку логов
+RUN chown -R appuser:appuser /app/log && chmod -R 777 /app/log
+
 USER appuser
 
 

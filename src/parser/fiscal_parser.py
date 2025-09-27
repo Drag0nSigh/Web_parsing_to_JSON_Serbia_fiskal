@@ -16,6 +16,14 @@ from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 
 from models.fiscal_models import SerbianFiscalData, FiscalData, Receipt, Item, Document, Ticket, AmountsNds, AmountsReceiptNds
+import logging
+from utils.log_manager import get_log_manager
+
+# Получаем менеджер логов
+log_manager = get_log_manager()
+
+# Настраиваем логирование
+logger = log_manager.setup_logging("parser", logging.INFO)
 
 
 class FiscalParser:
@@ -108,24 +116,24 @@ class FiscalParser:
             self._setup_driver()
         
         try:
-            print(f"🌐 Загружаем страницу: {url}")
+            logger.info(f"🌐 Загружаем страницу: {url}")
             # Загружаем страницу
             self.driver.get(url)
             
-            print("⏳ Ждем загрузки данных...")
+            logger.info("⏳ Ждем загрузки данных...")
             # Ждем загрузки Knockout.js и данных
             self._wait_for_data_loading()
             
-            print("📄 Получаем HTML...")
+            logger.info("📄 Получаем HTML...")
             # Получаем HTML после выполнения JavaScript
             html_content = self.driver.page_source
             
-            print("🔍 Парсим данные...")
+            logger.info("🔍 Парсим данные...")
             # Парсим данные
             return self._parse_html_content(html_content)
             
         except Exception as e:
-            print(f"❌ Ошибка при парсинге: {e}")
+            logger.error(f"❌ Ошибка при парсинге: {e}")
             import traceback
             traceback.print_exc()
             # Если парсинг не удался, возвращаем пустые данные
@@ -158,29 +166,29 @@ class FiscalParser:
             WebDriverWait(self.driver, 15).until(
                 EC.invisibility_of_element_located((By.CSS_SELECTOR, ".sk-spinner"))
             )
-            print(f"✅ Спиннер загрузки исчез за {time.time() - start_time} секунд")
+            logger.info(f"✅ Спиннер загрузки исчез за {time.time() - start_time} секунд")
             
             # Открываем список товаров (спецификацию)
-            print("🔍 Ищем кнопку для открытия списка товаров...")
+            logger.info("🔍 Ищем кнопку для открытия списка товаров...")
             try:
                 # Ищем кнопку "Спецификација рачуна"
                 specs_button = WebDriverWait(self.driver, 10).until(
                     EC.element_to_be_clickable((By.CSS_SELECTOR, "a[href='#collapse-specs']"))
                 )
-                print("✅ Найдена кнопка спецификации")
+                logger.info("✅ Найдена кнопка спецификации")
                 
                 # Проверяем, открыт ли уже список
                 collapse_div = self.driver.find_element(By.CSS_SELECTOR, "#collapse-specs")
                 if "show" not in collapse_div.get_attribute("class"):
-                    print("📂 Открываем список товаров...")
+                    logger.info("📂 Открываем список товаров...")
                     specs_button.click()
                     time.sleep(0.25)  # Ждем анимации открытия
-                    print("✅ Список товаров открыт")
+                    logger.info("✅ Список товаров открыт")
                 else:
-                    print("✅ Список товаров уже открыт")
+                    logger.info("✅ Список товаров уже открыт")
                     
             except Exception as e:
-                print(f"⚠️ Не удалось открыть список товаров: {e}")
+                logger.warning(f"⚠️ Не удалось открыть список товаров: {e}")
             
             # Ждем появления данных в таблице - пробуем разные селекторы
             selectors_to_try = [
@@ -202,21 +210,21 @@ class FiscalParser:
                     WebDriverWait(self.driver, 5).until(
                         EC.presence_of_element_located((By.CSS_SELECTOR, selector))
                     )
-                    print(f"✅ Найдена таблица с селектором: {selector}")
+                    logger.info(f"✅ Найдена таблица с селектором: {selector}")
                     table_found = True
                     break
                 except:
-                    print(f"❌ Не найдена таблица с селектором: {selector}")
+                    logger.debug(f"❌ Не найдена таблица с селектором: {selector}")
                     continue
             
             if not table_found:
-                print("⚠️ Таблица с товарами не найдена")
+                logger.warning("⚠️ Таблица с товарами не найдена")
             
             # Дополнительная пауза для полной загрузки
             time.sleep(0.5)  # Уменьшаем время ожидания
             
         except Exception as e:
-            print(f"⚠️ Ошибка при ожидании загрузки: {e}")
+            logger.warning(f"⚠️ Ошибка при ожидании загрузки: {e}")
             # Продолжаем выполнение даже если ожидание не удалось
             time.sleep(0.5)
     
@@ -283,9 +291,8 @@ class FiscalParser:
         total_element = soup.find('span', {'id': 'totalAmountLabel'})
         if total_element:
             amount_text = total_element.get_text(strip=True)
-            # В сербском формате: 1.839,96 - точка для тысяч, запятая для десятичных
-            amount_text = amount_text.replace('.', '').replace(',', '.')
-            return Decimal(amount_text)
+            # Используем улучшенный парсер
+            return self._parse_serbian_number(amount_text)
         return Decimal('0')
     
     def _extract_transaction_type_counter(self, soup: BeautifulSoup) -> int:
@@ -353,59 +360,60 @@ class FiscalParser:
         """Извлечение товаров из таблицы после загрузки Knockout.js"""
         items = []
         
-        print("🔍 Поиск товаров в HTML...")
+        logger.info("🔍 Поиск товаров в HTML...")
         
         # Сохраняем HTML для отладки
-        debug_path = "/app/log/debug_page.html"
+        debug_path = log_manager.get_daily_log_file("debug").with_suffix(".html")
+        
         with open(debug_path, "w", encoding="utf-8") as f:
             f.write(str(soup.prettify()))
-        print(f"💾 HTML сохранен в {debug_path} для отладки")
+        logger.info(f"💾 HTML сохранен в {debug_path} для отладки")
         
         # Метод 1: Ищем по Knockout.js биндингам
         items = self._extract_items_by_knockout_binding(soup)
         if items:
-            print(f"✅ Найдено товаров через Knockout.js: {len(items)}")
+            logger.info(f"✅ Найдено товаров через Knockout.js: {len(items)}")
             return items
         
         # Метод 2: Ищем все строки таблиц
         all_rows = soup.find_all('tr')
-        print(f"📊 Найдено строк таблиц: {len(all_rows)}")
+        logger.info(f"📊 Найдено строк таблиц: {len(all_rows)}")
         
         # Показываем первые несколько строк для отладки
         for i, row in enumerate(all_rows[:10]):
             cells = row.find_all(['td', 'th'])
             if cells:
                 cell_texts = [cell.get_text(strip=True) for cell in cells]
-                print(f"  Строка {i}: {cell_texts}")
+                logger.debug(f"  Строка {i}: {cell_texts}")
         
         for i, row in enumerate(all_rows):
             cells = row.find_all(['td', 'th'])
             if len(cells) >= 4:  # Минимум 4 колонки (название, количество, цена, сумма)
                 cell_texts = [cell.get_text(strip=True) for cell in cells]
-                print(f"  🔍 Проверяем строку {i}: {cell_texts}")
+                logger.debug(f"  🔍 Проверяем строку {i}: {cell_texts}")
                 
                 # Проверяем, похожа ли строка на товар
                 if self._is_item_row(cell_texts):
-                    print(f"  ✅ Строка {i} похожа на товар")
+                    logger.debug(f"  ✅ Строка {i} похожа на товар")
                     try:
                         item = self._parse_item_row(cells)
                         if item and item['name']:  # Только если есть название
                             items.append(item)
-                            print(f"  ✅ Товар {len(items)}: {item['name']} - {item['quantity']} x {item['price']} = {item['sum']}")
+                            logger.info(f"  ✅ Товар {len(items)}: {item['name']} - {item['quantity']} x {item['price']} = {item['sum']}")
                         else:
-                            print(f"  ❌ Товар не создан или без названия")
+                            logger.warning(f"  ❌ Товар не создан или без названия")
                     except Exception as e:
-                        print(f"  ❌ Ошибка парсинга строки: {e}")
+                        logger.error(f"  ❌ Ошибка парсинга строки: {e}")
                         continue
                 else:
-                    print(f"  ❌ Строка {i} не похожа на товар")
+                    logger.debug(f"  ❌ Строка {i} не похожа на товар")
         
         # Метод 3: Если товары не найдены, ищем по тексту
         if not items:
-            print("🔍 Товары не найдены в таблицах, ищем по тексту...")
+            logger.info("🔍 Товары не найдены в таблицах, ищем по тексту...")
             items = self._extract_items_by_text_search(soup)
         
-        print(f"📦 Итого найдено товаров: {len(items)}")
+        logger.info(f"📦 Итого найдено товаров: {len(items)}")
         return items
     
     def _extract_items_by_knockout_binding(self, soup: BeautifulSoup) -> List[Dict]:
@@ -415,10 +423,10 @@ class FiscalParser:
         
         # Ищем элементы с data-bind="foreach: Specifications"
         knockout_elements = soup.find_all(attrs={"data-bind": lambda x: x and "Specifications" in x})
-        print(f"🔗 Найдено Knockout.js элементов: {len(knockout_elements)}")
+        logger.info(f"🔗 Найдено Knockout.js элементов: {len(knockout_elements)}")
         
         for element in knockout_elements:
-            print(f"  Knockout элемент: {element.name} - {element.get('data-bind')}")
+            logger.debug(f"  Knockout элемент: {element.name} - {element.get('data-bind')}")
             
             # Ищем строки внутри этого элемента
             rows = element.find_all('tr')
@@ -433,11 +441,11 @@ class FiscalParser:
                             if item_key not in seen_items:
                                 items.append(item)
                                 seen_items.add(item_key)
-                                print(f"    ✅ Товар: {item['name']}")
+                                logger.info(f"    ✅ Товар: {item['name']}")
                             else:
-                                print(f"    ⚠️ Дублированный товар: {item['name']}")
+                                logger.debug(f"    ⚠️ Дублированный товар: {item['name']}")
                     except Exception as e:
-                        print(f"    ❌ Ошибка: {e}")
+                        logger.error(f"    ❌ Ошибка: {e}")
         
         return items
     
@@ -445,7 +453,7 @@ class FiscalParser:
         """Поиск товаров по тексту (fallback метод)"""
         items = []
         
-        print("🔍 Поиск товаров по тексту...")
+        logger.info("🔍 Поиск товаров по тексту...")
         
         # Ищем все элементы с текстом, содержащим числа и цены
         text_content = soup.get_text()
@@ -457,12 +465,12 @@ class FiscalParser:
             if len(line) > 10 and any(char.isdigit() for char in line):
                 # Проверяем, содержит ли строка паттерны товара
                 if self._looks_like_item_line(line):
-                    print(f"  📝 Возможный товар: {line[:100]}...")
+                    logger.debug(f"  📝 Возможный товар: {line[:100]}...")
                     # Пытаемся извлечь данные из строки
                     item = self._extract_item_from_line(line)
                     if item:
                         items.append(item)
-                        print(f"  ✅ Добавлен товар: {item['name']}")
+                        logger.info(f"  ✅ Добавлен товар: {item['name']}")
         
         return items
     
@@ -479,7 +487,7 @@ class FiscalParser:
                 name = name_match.group(1).strip() if name_match else "Товар"
                 
                 # Парсим числа
-                quantity = Decimal(numbers[0].replace(',', '.'))
+                quantity = self._parse_serbian_number(numbers[0])
                 price = self._parse_serbian_number(numbers[1])
                 total = self._parse_serbian_number(numbers[2])
                 
@@ -497,7 +505,7 @@ class FiscalParser:
                     'label': 'Е'
                 }
             except Exception as e:
-                print(f"  ❌ Ошибка извлечения товара: {e}")
+                logger.error(f"  ❌ Ошибка извлечения товара: {e}")
                 return None
         
         return None
@@ -552,10 +560,10 @@ class FiscalParser:
         vat_amount_text = cells[5].get_text(strip=True) if len(cells) > 5 else "0"
         label = cells[6].get_text(strip=True) if len(cells) > 6 else "Е"
         
-        print(f"    📝 Парсим товар: {name} | {quantity_text} | {unit_price_text} | {total_text}")
+        logger.debug(f"    📝 Парсим товар: {name} | {quantity_text} | {unit_price_text} | {total_text}")
         
         # Парсим числовые значения
-        quantity = Decimal(quantity_text.replace(',', '.')) if quantity_text else Decimal('0')
+        quantity = self._parse_serbian_number(quantity_text) if quantity_text else Decimal('0')
         unit_price = self._parse_serbian_number(unit_price_text)
         total = self._parse_serbian_number(total_text)
         
@@ -584,11 +592,24 @@ class FiscalParser:
         if not text:
             return Decimal('0')
         
+        # Убираем все пробелы и невидимые символы
+        text = text.strip()
+        
         # Убираем точки (разделители тысяч) и заменяем запятую на точку
         cleaned_text = text.replace('.', '').replace(',', '.')
+        
+        # Убираем все нецифровые символы кроме точки и минуса
+        import re
+        cleaned_text = re.sub(r'[^\d\.\-]', '', cleaned_text)
+        
+        # Проверяем, что осталось что-то для парсинга
+        if not cleaned_text or cleaned_text in ['-', '.']:
+            return Decimal('0')
+        
         try:
             return Decimal(cleaned_text)
-        except:
+        except Exception as e:
+            logger.warning(f"⚠️ Не удалось распарсить число '{text}' -> '{cleaned_text}': {e}")
             return Decimal('0')
     
     def close(self):
@@ -618,8 +639,8 @@ class SerbianToRussianConverter:
         # Генерируем случайный ID по образцу rus.json (24 символа)
         import string
         random_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=24))
-        print(f"🔧 Генерируем ID: {random_id}")
-        print(f"🔧 Дата создания: {self.serbian_data.sdc_date_time}")
+        logger.info(f"🔧 Генерируем ID: {random_id}")
+        logger.info(f"🔧 Дата создания: {self.serbian_data.sdc_date_time}")
         
         # Создаем товары на основе извлеченных данных
         items = []
@@ -709,22 +730,22 @@ class SerbianToRussianConverter:
         ticket = Ticket(document=document)
         
         # Создаем фискальные данные с правильными полями
-        print(f"🔧 Создаем FiscalData с ID: {random_id}")
-        print(f"🔧 Создаем FiscalData с created_at: {self.serbian_data.sdc_date_time}")
+        logger.info(f"🔧 Создаем FiscalData с ID: {random_id}")
+        logger.info(f"🔧 Создаем FiscalData с created_at: {self.serbian_data.sdc_date_time}")
         
         fiscal_data = FiscalData(ticket=ticket)
         
-        print(f"🔧 FiscalData создан без ID и created_at:")
-        print(f"   ID: {fiscal_data.id}")
-        print(f"   Created: {fiscal_data.created_at}")
+        logger.debug(f"🔧 FiscalData создан без ID и created_at:")
+        logger.debug(f"   ID: {fiscal_data.id}")
+        logger.debug(f"   Created: {fiscal_data.created_at}")
         
         # Устанавливаем значения после создания
         fiscal_data.id = random_id
         fiscal_data.created_at = self.serbian_data.sdc_date_time.strftime("%Y-%m-%dT%H:%M:%S+00:00")
         
-        print(f"🔧 FiscalData после установки значений:")
-        print(f"   ID: {fiscal_data.id}")
-        print(f"   Created: {fiscal_data.created_at}")
+        logger.debug(f"🔧 FiscalData после установки значений:")
+        logger.debug(f"   ID: {fiscal_data.id}")
+        logger.debug(f"   Created: {fiscal_data.created_at}")
         
         return fiscal_data
 
@@ -852,18 +873,18 @@ def parse_serbian_fiscal_url(url: str, headless: bool = True) -> Dict:
         serbian_data = parser.parse_url(url)
         
         # Конвертируем в российский формат
-        print(f"🔧 Конвертируем данные...")
-        print(f"   TIN: {serbian_data.tin}")
-        print(f"   Shop: {serbian_data.shop_name}")
-        print(f"   Total: {serbian_data.total_amount}")
-        print(f"   Items: {len(serbian_data.items)}")
+        logger.info(f"🔧 Конвертируем данные...")
+        logger.info(f"   TIN: {serbian_data.tin}")
+        logger.info(f"   Shop: {serbian_data.shop_name}")
+        logger.info(f"   Total: {serbian_data.total_amount}")
+        logger.info(f"   Items: {len(serbian_data.items)}")
         
         converter = SerbianToRussianConverter(serbian_data)
         russian_data = converter.convert()
         
-        print(f"✅ Конвертация завершена")
-        print(f"   ID: {russian_data.id}")
-        print(f"   Created: {russian_data.created_at}")
+        logger.info(f"✅ Конвертация завершена")
+        logger.info(f"   ID: {russian_data.id}")
+        logger.info(f"   Created: {russian_data.created_at}")
         
         # Возвращаем массив как в rus.json
         return [russian_data.model_dump(mode='json', by_alias=True)]

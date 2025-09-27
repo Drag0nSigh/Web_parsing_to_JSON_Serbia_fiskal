@@ -21,7 +21,13 @@ from .models import Base, User, RequestLog
 # Загружаем переменные окружения
 load_dotenv()
 
-logger = logging.getLogger(__name__)
+from utils.log_manager import get_log_manager
+
+# Получаем менеджер логов
+log_manager = get_log_manager()
+
+# Настраиваем логирование
+logger = log_manager.setup_logging("database", logging.INFO)
 
 
 class DatabaseManager:
@@ -48,7 +54,7 @@ class DatabaseManager:
                 
                 db_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
             
-            print(f"Подключение к базе данных: {db_url.split('@')[1] if '@' in db_url else 'localhost'}")
+            logger.info(f"Подключение к базе данных: {db_url.split('@')[1] if '@' in db_url else 'localhost'}")
             
             # Создаем движок
             self.engine = create_engine(

@@ -21,11 +21,13 @@ from .user_commands import start, help_command, admin_message, handle_message
 load_dotenv()
 
 # Настройка логирования
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+from utils.log_manager import get_log_manager
+
+# Получаем менеджер логов
+log_manager = get_log_manager()
+
+# Настраиваем логирование
+logger = log_manager.setup_logging("bot", logging.INFO)
 
 # Получаем токен бота
 TG_TOKEN = os.getenv('TG_TOKEN')

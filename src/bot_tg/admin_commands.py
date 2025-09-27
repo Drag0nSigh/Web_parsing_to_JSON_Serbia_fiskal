@@ -250,8 +250,9 @@ async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         disk = psutil.disk_usage('/')
         
         # Информация о логах
-        log_dir = Path("/app/log")
-        log_count = len(list(log_dir.glob("requests_log_*.txt"))) if log_dir.exists() else 0
+        from utils.log_manager import get_log_manager
+        log_manager = get_log_manager()
+        log_stats = log_manager.get_log_stats()
         
         status_message = f"""
 🖥️ <b>Статус системы:</b>
@@ -264,7 +265,8 @@ async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 📊 <b>Бот:</b>
 • Статус: ✅ Работает
-• Логов: {log_count} файлов
+• Логов: {log_stats['total_files']} файлов ({log_stats['total_size'] / 1024:.1f} KB)
+• Хранение: {log_stats['retention_days']} дней
 • Время: {datetime.now().strftime('%d.%m.%y %H:%M:%S')}
         """
         

@@ -3,7 +3,17 @@
 """
 import time
 import functools
+import logging
 from typing import Callable, Any
+
+# Настройка логгера
+from utils.log_manager import get_log_manager
+
+# Получаем менеджер логов
+log_manager = get_log_manager()
+
+# Настраиваем логирование
+logger = log_manager.setup_logging("timing", logging.INFO)
 
 
 def timing_decorator(func: Callable) -> Callable:
@@ -30,7 +40,7 @@ def timing_decorator(func: Callable) -> Callable:
             else:
                 time_str = f"{execution_time:.2f}s"
             
-            print(f"⏱️  {func.__name__}() выполнилась за {time_str}")
+            logger.info(f"⏱️  {func.__name__}() выполнилась за {time_str}")
             return result
             
         except Exception as e:
@@ -42,7 +52,7 @@ def timing_decorator(func: Callable) -> Callable:
             else:
                 time_str = f"{execution_time:.2f}s"
             
-            print(f"❌ {func.__name__}() завершилась с ошибкой за {time_str}: {e}")
+            logger.error(f"❌ {func.__name__}() завершилась с ошибкой за {time_str}: {e}")
             raise
     
     return wrapper
@@ -72,7 +82,7 @@ def async_timing_decorator(func: Callable) -> Callable:
             else:
                 time_str = f"{execution_time:.2f}s"
             
-            print(f"⏱️  {func.__name__}() выполнилась за {time_str}")
+            logger.info(f"⏱️  {func.__name__}() выполнилась за {time_str}")
             return result
             
         except Exception as e:
@@ -84,7 +94,7 @@ def async_timing_decorator(func: Callable) -> Callable:
             else:
                 time_str = f"{execution_time:.2f}s"
             
-            print(f"❌ {func.__name__}() завершилась с ошибкой за {time_str}: {e}")
+            logger.error(f"❌ {func.__name__}() завершилась с ошибкой за {time_str}: {e}")
             raise
     
     return wrapper
