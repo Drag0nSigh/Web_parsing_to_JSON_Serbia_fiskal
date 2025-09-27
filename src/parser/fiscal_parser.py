@@ -16,7 +16,6 @@ from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 
 from models.fiscal_models import SerbianFiscalData, FiscalData, Receipt, Item, Document, Ticket, AmountsNds, AmountsReceiptNds
-from utils.timing_decorator import timing_decorator
 
 
 class FiscalParser:
@@ -27,7 +26,6 @@ class FiscalParser:
         self.driver = None
         self._setup_driver()
     
-    @timing_decorator
     def _setup_driver(self):
         """Настройка Chrome WebDriver"""
         chrome_options = Options()
@@ -95,7 +93,6 @@ class FiscalParser:
         self.driver.implicitly_wait(5)
         self.driver.set_page_load_timeout(30)
     
-    @timing_decorator
     def parse_url(self, url: str) -> SerbianFiscalData:
         """Парсинг фискальных данных по URL"""
         # Проверяем, что драйвер работает
@@ -148,7 +145,6 @@ class FiscalParser:
                 items=[]
             )
     
-    @timing_decorator
     def _wait_for_data_loading(self):
         """Ожидание загрузки данных через Knockout.js"""
         try:
@@ -219,7 +215,6 @@ class FiscalParser:
             # Продолжаем выполнение даже если ожидание не удалось
             time.sleep(0.5)
     
-    @timing_decorator
     def _parse_html_content(self, html_content: str) -> SerbianFiscalData:
         """Парсинг HTML контента"""
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -248,43 +243,36 @@ class FiscalParser:
         
         return SerbianFiscalData(**data)
     
-    @timing_decorator
     def _extract_tin(self, soup: BeautifulSoup) -> str:
         """Извлечение ПИБ"""
         tin_element = soup.find('span', {'id': 'tinLabel'})
         return tin_element.get_text(strip=True) if tin_element else ""
     
-    @timing_decorator
     def _extract_shop_name(self, soup: BeautifulSoup) -> str:
         """Извлечение названия магазина"""
         shop_element = soup.find('span', {'id': 'shopFullNameLabel'})
         return shop_element.get_text(strip=True) if shop_element else ""
     
-    @timing_decorator
     def _extract_shop_address(self, soup: BeautifulSoup) -> str:
         """Извлечение адреса магазина"""
         address_element = soup.find('span', {'id': 'addressLabel'})
         return address_element.get_text(strip=True) if address_element else ""
     
-    @timing_decorator
     def _extract_city(self, soup: BeautifulSoup) -> str:
         """Извлечение города"""
         city_element = soup.find('span', {'id': 'cityLabel'})
         return city_element.get_text(strip=True) if city_element else ""
     
-    @timing_decorator
     def _extract_administrative_unit(self, soup: BeautifulSoup) -> str:
         """Извлечение општины"""
         admin_element = soup.find('span', {'id': 'administrativeUnitLabel'})
         return admin_element.get_text(strip=True) if admin_element else ""
     
-    @timing_decorator
     def _extract_invoice_number(self, soup: BeautifulSoup) -> str:
         """Извлечение номера чека"""
         invoice_element = soup.find('span', {'id': 'invoiceNumberLabel'})
         return invoice_element.get_text(strip=True) if invoice_element else ""
     
-    @timing_decorator
     def _extract_total_amount(self, soup: BeautifulSoup) -> Decimal:
         """Извлечение общей суммы"""
         total_element = soup.find('span', {'id': 'totalAmountLabel'})
@@ -295,7 +283,6 @@ class FiscalParser:
             return Decimal(amount_text)
         return Decimal('0')
     
-    @timing_decorator
     def _extract_transaction_type_counter(self, soup: BeautifulSoup) -> int:
         """Извлечение счетчика по типу транзакции"""
         counter_element = soup.find('span', {'id': 'transactionTypeCounterLabel'})
@@ -303,7 +290,6 @@ class FiscalParser:
             return int(counter_element.get_text(strip=True))
         return 0
     
-    @timing_decorator
     def _extract_total_counter(self, soup: BeautifulSoup) -> int:
         """Извлечение общего счетчика"""
         counter_element = soup.find('span', {'id': 'totalCounterLabel'})
@@ -311,19 +297,16 @@ class FiscalParser:
             return int(counter_element.get_text(strip=True))
         return 0
     
-    @timing_decorator
     def _extract_invoice_counter_extension(self, soup: BeautifulSoup) -> str:
         """Извлечение расширения счетчика чека"""
         extension_element = soup.find('span', {'id': 'invoiceCounterExtensionLabel'})
         return extension_element.get_text(strip=True) if extension_element else ""
     
-    @timing_decorator
     def _extract_signed_by(self, soup: BeautifulSoup) -> str:
         """Извлечение подписи"""
         signed_element = soup.find('span', {'id': 'signedByLabel'})
         return signed_element.get_text(strip=True) if signed_element else ""
     
-    @timing_decorator
     def _extract_sdc_date_time(self, soup: BeautifulSoup) -> datetime:
         """Извлечение времени ПФР"""
         date_element = soup.find('span', {'id': 'sdcDateTimeLabel'})
@@ -335,38 +318,32 @@ class FiscalParser:
                 pass
         return datetime.now()
     
-    @timing_decorator
     def _extract_buyer_id(self, soup: BeautifulSoup) -> Optional[str]:
         """Извлечение ID покупателя"""
         buyer_element = soup.find('span', {'id': 'buyerIdLabel'})
         buyer_text = buyer_element.get_text(strip=True) if buyer_element else ""
         return buyer_text if buyer_text else None
     
-    @timing_decorator
     def _extract_requested_by(self, soup: BeautifulSoup) -> str:
         """Извлечение информации о том, кто затребовал"""
         requested_element = soup.find('span', {'id': 'requestedByLabel'})
         return requested_element.get_text(strip=True) if requested_element else ""
     
-    @timing_decorator
     def _extract_invoice_type(self, soup: BeautifulSoup) -> str:
         """Извлечение типа чека"""
         type_element = soup.find('span', {'id': 'invoiceTypeId'})
         return type_element.get_text(strip=True) if type_element else ""
     
-    @timing_decorator
     def _extract_transaction_type(self, soup: BeautifulSoup) -> str:
         """Извлечение типа транзакции"""
         type_element = soup.find('span', {'id': 'transactionTypeId'})
         return type_element.get_text(strip=True) if type_element else ""
     
-    @timing_decorator
     def _extract_status(self, soup: BeautifulSoup) -> str:
         """Извлечение статуса чека"""
         status_element = soup.find('label', {'id': 'invoiceStatusLabel'})
         return status_element.get_text(strip=True) if status_element else ""
     
-    @timing_decorator
     def _extract_items_from_table(self, soup: BeautifulSoup) -> List[Dict]:
         """Извлечение товаров из таблицы после загрузки Knockout.js"""
         items = []
@@ -425,7 +402,6 @@ class FiscalParser:
         print(f"📦 Итого найдено товаров: {len(items)}")
         return items
     
-    @timing_decorator
     def _extract_items_by_knockout_binding(self, soup: BeautifulSoup) -> List[Dict]:
         """Поиск товаров через Knockout.js биндинги"""
         items = []
@@ -459,7 +435,6 @@ class FiscalParser:
         
         return items
     
-    @timing_decorator
     def _extract_items_by_text_search(self, soup: BeautifulSoup) -> List[Dict]:
         """Поиск товаров по тексту (fallback метод)"""
         items = []
@@ -485,7 +460,6 @@ class FiscalParser:
         
         return items
     
-    @timing_decorator
     def _extract_item_from_line(self, line: str) -> Optional[Dict]:
         """Извлечение товара из строки текста"""
         import re
@@ -523,7 +497,6 @@ class FiscalParser:
         return None
     
     
-    @timing_decorator
     def _looks_like_item_line(self, line: str) -> bool:
         """Проверяет, похожа ли строка на товар"""
         # Ищем паттерны: название + количество + цена + сумма
@@ -536,7 +509,6 @@ class FiscalParser:
         
         return False
     
-    @timing_decorator
     def _is_item_row(self, cell_texts: List[str]) -> bool:
         """Проверяет, является ли строка товаром"""
         if len(cell_texts) < 4:  # Минимум название, количество, цена, сумма
@@ -564,7 +536,6 @@ class FiscalParser:
         except:
             return False
     
-    @timing_decorator
     def _parse_item_row(self, cells) -> Dict:
         """Парсит строку товара"""
         name = cells[0].get_text(strip=True)
@@ -602,7 +573,6 @@ class FiscalParser:
             'label': label
         }
     
-    @timing_decorator
     def _parse_serbian_number(self, text: str) -> Decimal:
         """Парсинг сербских чисел (1.839,96 -> 1839.96)"""
         if not text:
@@ -615,18 +585,15 @@ class FiscalParser:
         except:
             return Decimal('0')
     
-    @timing_decorator
     def close(self):
         """Закрытие браузера"""
         if self.driver:
             self.driver.quit()
             self.driver = None
     
-    @timing_decorator
     def __enter__(self):
         return self
     
-    @timing_decorator
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
@@ -634,11 +601,9 @@ class FiscalParser:
 class SerbianToRussianConverter:
     """Конвертер сербских данных в российский формат"""
     
-    @timing_decorator
     def __init__(self, serbian_data: SerbianFiscalData):
         self.serbian_data = serbian_data
     
-    @timing_decorator
     def convert(self) -> FiscalData:
         """Конвертация сербских данных в российский формат"""
         import uuid
@@ -757,7 +722,6 @@ class SerbianToRussianConverter:
         
         return fiscal_data
 
-@timing_decorator
 def create_serbian_data_with_items():
     """Создание сербских данных с товарами вручную"""
     
@@ -829,7 +793,6 @@ def create_serbian_data_with_items():
     
     return serbian_data
 
-@timing_decorator
 def convert_to_russian_format(serbian_data):
     """Конвертация в российский формат"""
     
@@ -874,7 +837,6 @@ def convert_to_russian_format(serbian_data):
     
     return FiscalData(ticket=ticket)
 
-@timing_decorator
 def parse_serbian_fiscal_url(url: str, headless: bool = True) -> Dict:
     """Основная функция для парсинга сербских фискальных данных по URL"""
     

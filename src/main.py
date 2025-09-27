@@ -5,10 +5,8 @@ import json
 import sys
 from pathlib import Path
 from parser.fiscal_parser import parse_serbian_fiscal_url
-from utils.timing_decorator import timing_decorator
 
 
-@timing_decorator
 def main():
     """Основная функция"""
     

@@ -1,7 +1,7 @@
 services:
   postgres:
     build:
-      context: ./db
+      context: ./src/db
       dockerfile: Dockerfile
     container_name: fiscal_postgres
     environment:

@@ -14,7 +14,6 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from dotenv import load_dotenv
 
-from utils.timing_decorator import async_timing_decorator
 from db.utils import get_recent_logs, get_users_list, get_system_stats, get_database_info, get_request_logs, log_message, get_username_by_id, activate_user, deactivate_user, is_user_active
 
 # Настройка логирования
@@ -43,7 +42,6 @@ def is_admin(user_id: int) -> bool:
     """Проверяет, является ли пользователь администратором"""
     return user_id == admin_id
 
-@async_timing_decorator
 async def admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /admin_start - приветствие для администратора"""
     if not is_admin(update.effective_user.id):
@@ -70,7 +68,6 @@ async def admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     
     await update.message.reply_text(admin_commands, parse_mode='HTML', reply_markup=create_admin_menu())
 
-@async_timing_decorator
 async def admin_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /admin_logs - получение всех логов"""
     if not is_admin(update.effective_user.id):
@@ -111,7 +108,6 @@ async def admin_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     except Exception as e:
         await update.message.reply_text(f"❌ Ошибка получения логов: {str(e)}")
 
-@async_timing_decorator
 async def admin_logs_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /admin_logs_DD_MM_YY - получение логов за определенную дату"""
     if not is_admin(update.effective_user.id):
@@ -175,7 +171,6 @@ async def admin_logs_date(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     except Exception as e:
         await update.message.reply_text(f"❌ Ошибка получения логов за дату: {str(e)}")
 
-@async_timing_decorator
 async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /admin_users - получение списка пользователей"""
     if not is_admin(update.effective_user.id):
@@ -216,7 +211,6 @@ async def admin_users(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(f"❌ Ошибка получения пользователей: {str(e)}")
 
 
-@async_timing_decorator
 async def admin_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /admin_test - тест работоспособности"""
     if not is_admin(update.effective_user.id):
@@ -240,7 +234,6 @@ async def admin_test(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     except Exception as e:
         await update.message.reply_text(f"❌ Ошибка при тестировании: {str(e)}")
 
-@async_timing_decorator
 async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /admin_status - статус системы"""
     if not is_admin(update.effective_user.id):
@@ -280,7 +273,6 @@ async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     except Exception as e:
         await update.message.reply_text(f"❌ Ошибка при получении статуса: {str(e)}")
 
-@async_timing_decorator
 async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Команда /admin_stats - статистика использования"""
     if not is_admin(update.effective_user.id):
@@ -336,7 +328,6 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     except Exception as e:
         await update.message.reply_text(f"❌ Ошибка получения статистики: {str(e)}")
 
-@async_timing_decorator
 async def send_message_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /send - отправка сообщения пользователю по ID"""
     user_id = update.effective_user.id
@@ -412,7 +403,6 @@ async def send_message_to_user(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error(f"❌ Ошибка отправки сообщения админом {username}: {e}")
 
 
-@async_timing_decorator
 async def activate_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /activate - активация пользователя"""
     user_id = update.effective_user.id
@@ -487,7 +477,6 @@ async def activate_user_command(update: Update, context: ContextTypes.DEFAULT_TY
         logger.error(f"❌ Ошибка активации пользователя админом {username}: {e}")
 
 
-@async_timing_decorator
 async def deactivate_user_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /deactivate - деактивация пользователя"""
     user_id = update.effective_user.id

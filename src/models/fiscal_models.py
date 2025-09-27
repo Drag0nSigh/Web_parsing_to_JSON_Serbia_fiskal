@@ -7,7 +7,6 @@ from typing import List, Optional, Union, Dict
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from enum import Enum
 
-from utils.timing_decorator import timing_decorator
 
 
 class PaymentType(str, Enum):
@@ -75,7 +74,6 @@ class Item(BaseModel):
     productType: int = Field(..., description="Тип товара")
     
     @model_validator(mode='after')
-    @timing_decorator
     def validate_sum(self):
         """Проверка соответствия суммы количеству и цене"""
         expected_sum = self.quantity * self.price
@@ -127,7 +125,6 @@ class Receipt(BaseModel):
     userInn: str = Field(..., description="ИНН организации")
     
     @model_validator(mode='after')
-    @timing_decorator
     def validate_total_sum(self):
         """Проверка соответствия общей суммы сумме товаров"""
         items_sum = sum(item.sum for item in self.items)

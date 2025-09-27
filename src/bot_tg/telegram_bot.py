@@ -10,7 +10,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
 
 from db.utils import init_database
-from utils.timing_decorator import timing_decorator, async_timing_decorator
 from .admin_commands import (
     admin_start, admin_logs, admin_logs_date, admin_users, 
     admin_test, admin_status, admin_stats, send_message_to_user, 
@@ -62,7 +61,6 @@ def create_admin_menu() -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
-@async_timing_decorator
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик нажатий на кнопки (только административные)"""
     query = update.callback_query
@@ -354,7 +352,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if hasattr(context, 'processing_callbacks'):
         context.processing_callbacks.discard(query.id)
 
-@async_timing_decorator
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик ошибок"""
     error = context.error
@@ -372,7 +369,6 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             "Попробуйте позже или обратитесь к администратору."
         )
 
-@timing_decorator
 def main() -> None:
     """Основная функция запуска бота"""
     logger.info("Запуск телеграм бота...")

@@ -10,7 +10,6 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from parser.fiscal_parser import parse_serbian_fiscal_url
-from utils.timing_decorator import async_timing_decorator
 from db.utils import log_user_request, check_daily_limit, log_user_request, is_user_active, has_sent_blocked_message, log_message
 from .admin_commands import is_admin
 
@@ -20,7 +19,6 @@ logger = logging.getLogger(__name__)
 # ID администратора
 admin_id = int(os.getenv('ADMIN_ID', '0'))
 
-@async_timing_decorator
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /start"""
     user_id = update.effective_user.id
@@ -90,7 +88,6 @@ https://suf.purs.gov.rs/v/?vl=...
         await update.message.reply_text(help_text, parse_mode='HTML')
 
 
-@async_timing_decorator
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /help"""
     user_id = update.effective_user.id
@@ -129,7 +126,6 @@ https://suf.purs.gov.rs/v/?vl=...
     await update.message.reply_text(help_text, parse_mode='HTML')
 
 
-@async_timing_decorator
 async def admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик команды /admin - отправка сообщения администратору"""
     user_id = update.effective_user.id
@@ -223,7 +219,6 @@ async def admin_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
 
 
-@async_timing_decorator
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обработчик всех сообщений"""
     user_id = update.effective_user.id
@@ -327,7 +322,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
 
 
-@async_timing_decorator
 def is_url(text: str) -> bool:
     """Проверяет, является ли текст URL"""
     url_pattern = re.compile(
