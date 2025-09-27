@@ -19,6 +19,38 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+    networks:
+      - fiscal_network
+
+  bot:
+    build:
+      context: .
+      dockerfile: src/Dockerfile
+    container_name: fiscal_bot
+    environment:
+      # Настройки базы данных
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      
+      # Настройки Telegram бота
+      TG_TOKEN: ${TG_TOKEN}
+      ADMIN_ID: ${ADMIN_ID}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ./log:/app/log
+    networks:
+      - fiscal_network
+
+networks:
+  fiscal_network:
+    driver: bridge
 
 volumes:
   postgres_data:

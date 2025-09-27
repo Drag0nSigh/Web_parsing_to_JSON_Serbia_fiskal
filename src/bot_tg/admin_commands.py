@@ -250,7 +250,7 @@ async def admin_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         disk = psutil.disk_usage('/')
         
         # Информация о логах
-        log_dir = Path("log")
+        log_dir = Path("/app/log")
         log_count = len(list(log_dir.glob("requests_log_*.txt"))) if log_dir.exists() else 0
         
         status_message = f"""

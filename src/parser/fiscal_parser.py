@@ -85,8 +85,13 @@ class FiscalParser:
         chrome_options.add_argument("--window-size=1920,1080")
         chrome_options.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         
-        # Кэшируем драйвер для повторного использования
-        service = Service(ChromeDriverManager().install())
+        # Используем системный chromedriver в Docker
+        import os
+        if os.path.exists('/usr/bin/chromedriver'):
+            service = Service('/usr/bin/chromedriver')
+        else:
+            # Fallback для локальной разработки
+            service = Service(ChromeDriverManager().install())
         self.driver = webdriver.Chrome(service=service, options=chrome_options)
         
         # Уменьшаем время ожидания
@@ -351,9 +356,10 @@ class FiscalParser:
         print("🔍 Поиск товаров в HTML...")
         
         # Сохраняем HTML для отладки
-        with open("debug_page.html", "w", encoding="utf-8") as f:
+        debug_path = "/app/log/debug_page.html"
+        with open(debug_path, "w", encoding="utf-8") as f:
             f.write(str(soup.prettify()))
-        print("💾 HTML сохранен в debug_page.html для отладки")
+        print(f"💾 HTML сохранен в {debug_path} для отладки")
         
         # Метод 1: Ищем по Knockout.js биндингам
         items = self._extract_items_by_knockout_binding(soup)
