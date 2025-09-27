@@ -80,10 +80,10 @@ DATABASE_URL=postgresql://fiscal_user:secure_password_123@localhost:5432/fiscal_
 ### 3. Запуск PostgreSQL
 ```bash
 # Запуск базы данных
-docker-compose up -d
+docker compose up -d
 
 # Проверка статуса
-docker-compose ps
+docker compose ps
 ```
 
 Подробная инструкция в [DATABASE_SETUP.md](DATABASE_SETUP.md)

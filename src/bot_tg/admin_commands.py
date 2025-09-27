@@ -14,7 +14,7 @@ from telegram.ext import ContextTypes
 from dotenv import load_dotenv
 
 from utils.timing_decorator import async_timing_decorator
-from db.utils import get_recent_logs, get_users_list, get_system_stats, get_database_info, get_request_logs
+from db.utils import get_recent_logs, get_users_list, get_system_stats, get_database_info, get_request_logs, log_message
 
 # Загружаем переменные окружения
 load_dotenv()
@@ -47,26 +47,24 @@ async def admin_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text("❌ У вас нет прав администратора")
         return
     
+    # Импортируем функцию создания админ меню
+    from .telegram_bot import create_admin_menu
+    
     admin_commands = """
-🔧 <b>Административные команды:</b>
+🔧 <b>Административная панель</b>
 
-  📊 <b>Логи:</b>
-  /admin_logs - все логи
-  /admin_logs_26_09_25 - логи за определенную дату
+📊 <b>Доступные функции:</b>
+• Просмотр логов запросов
+• Управление пользователями
+• Статистика использования
+• Мониторинг системы
+• Тестирование парсера
+• Перезапуск бота
 
-👥 <b>Пользователи:</b>
-/admin_users - список пользователей
-
-🔄 <b>Управление:</b>
-/admin_restart - перезапуск бота
-/admin_test - тест работоспособности
-/admin_status - статус системы
-
-📈 <b>Статистика:</b>
-/admin_stats - статистика использования
+💡 <b>Используйте кнопки ниже для быстрого доступа к функциям</b>
     """
     
-    await update.message.reply_text(admin_commands, parse_mode='HTML')
+    await update.message.reply_text(admin_commands, parse_mode='HTML', reply_markup=create_admin_menu())
 
 @async_timing_decorator
 async def admin_logs(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -303,6 +301,7 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         message += f"   ✅ Успешных: {stats.get('successful_requests', 0)}\n"
         message += f"   ❌ Ошибок: {stats.get('failed_requests', 0)}\n"
         message += f"   👥 Уникальных пользователей: {stats.get('unique_users', 0)}\n\n"
+        message += f"   💡 <i>Успешными считаются: парсинг ссылок, команды</i>\n\n"
         
         # Статистика по дням
         daily_stats = stats.get('daily_stats', [])
@@ -334,52 +333,75 @@ async def admin_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(f"❌ Ошибка получения статистики: {str(e)}")
 
 @async_timing_decorator
-async def admin_restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Команда /admin_restart - перезапуск бота"""
-    if not is_admin(update.effective_user.id):
+async def send_message_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Обработчик команды /send - отправка сообщения пользователю по ID"""
+    user_id = update.effective_user.id
+    username = update.effective_user.username or "без_username"
+    
+    # Проверяем права администратора
+    if not is_admin(user_id):
         await update.message.reply_text("❌ У вас нет прав администратора")
         return
     
+    # Получаем аргументы команды
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            "📨 <b>Отправка сообщения пользователю</b>\n\n"
+            "Использование: <code>/send ID_пользователя текст сообщения</code>\n\n"
+            "Пример: <code>/send 123456789 Привет! Как дела?</code>",
+            parse_mode='HTML'
+        )
+        return
+    
     try:
-        await update.message.reply_text("🔄 Перезапуск бота...")
+        # Извлекаем ID пользователя и текст сообщения
+        target_user_id = int(context.args[0])
+        message_text = ' '.join(context.args[1:])
         
-        # Получаем путь к скрипту перезапуска
-        script_dir = Path(__file__).parent
-        restart_script = script_dir / "restart_bot.py"
-        
-        if not restart_script.exists():
-            await update.message.reply_text("❌ Скрипт перезапуска не найден")
-            return
-        
-        # Запускаем скрипт перезапуска в фоновом режиме
-        import subprocess
-        import sys
-        
-        process = subprocess.Popen(
-            [sys.executable, str(restart_script), "--restart"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            cwd=script_dir.parent.parent,  # Переходим в корень проекта
-            text=True,  # Используем текстовый режим
-            encoding='utf-8',  # Явно указываем кодировку
-            errors='replace'  # Заменяем нечитаемые символы
+        # Отправляем сообщение пользователю
+        await context.bot.send_message(
+            chat_id=target_user_id,
+            text=f"📨 <b>Сообщение от администратора:</b>\n\n{message_text}",
+            parse_mode='HTML'
         )
         
-        # Ждем немного для завершения перезапуска
-        await asyncio.sleep(3)
+        # Логируем сообщение в базу данных
+        log_message(target_user_id, f"user_{target_user_id}", 'admin_to_user', 'admin_response')
         
-        # Проверяем, что процесс завершился успешно
-        if process.poll() is None:
-            # Процесс еще работает, ждем еще
-            await asyncio.sleep(2)
+        # Подтверждаем отправку администратору
+        await update.message.reply_text(
+            f"✅ <b>Сообщение отправлено!</b>\n\n"
+            f"👤 <b>Получатель:</b> ID {target_user_id}\n"
+            f"📝 <b>Текст:</b> {message_text}",
+            parse_mode='HTML'
+        )
         
-        if process.returncode == 0:
-            await update.message.reply_text("✅ Бот успешно перезапущен")
-        else:
-            stdout, stderr = process.communicate()
-            # Поскольку мы используем text=True, stderr уже строка
-            error_msg = stderr if stderr else "Неизвестная ошибка"
-            await update.message.reply_text(f"❌ Ошибка перезапуска: {error_msg}")
+        # Логируем отправку сообщения
+        logger.info(f"📨 Админ {username} (ID: {user_id}) отправил сообщение пользователю {target_user_id}: {message_text}")
         
+    except ValueError:
+        await update.message.reply_text(
+            "❌ <b>Ошибка в ID пользователя</b>\n\n"
+            "ID должен быть числом.\n"
+            "Пример: <code>/send 123456789 Привет!</code>",
+            parse_mode='HTML'
+        )
     except Exception as e:
-        await update.message.reply_text(f"❌ Ошибка при перезапуске: {str(e)}")
+        error_msg = str(e)
+        if "chat not found" in error_msg.lower():
+            await update.message.reply_text(
+                f"❌ <b>Пользователь не найден</b>\n\n"
+                f"Пользователь с ID {target_user_id} не найден или не писал боту.\n"
+                f"Убедитесь, что ID правильный."
+            )
+        elif "blocked" in error_msg.lower():
+            await update.message.reply_text(
+                f"❌ <b>Пользователь заблокировал бота</b>\n\n"
+                f"Пользователь с ID {target_user_id} заблокировал бота."
+            )
+        else:
+            await update.message.reply_text(
+                f"❌ <b>Ошибка отправки сообщения</b>\n\n"
+                f"Ошибка: {error_msg}"
+            )
+        logger.error(f"❌ Ошибка отправки сообщения админом {username}: {e}")

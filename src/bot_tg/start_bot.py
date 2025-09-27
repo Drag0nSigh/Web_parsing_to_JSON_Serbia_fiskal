@@ -32,7 +32,8 @@ if __name__ == '__main__':
     print("-" * 50)
     
     try:
-        main()
+        import asyncio
+        asyncio.run(main())
     except KeyboardInterrupt:
         print("\n🛑 Бот остановлен пользователем")
     except Exception as e:

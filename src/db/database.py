@@ -44,7 +44,7 @@ class DatabaseManager:
                 port = os.getenv('POSTGRES_PORT', '5432')
                 user = os.getenv('POSTGRES_USER', 'fiscal_user')
                 password = os.getenv('POSTGRES_PASSWORD', 'secure_password_123')
-                database = os.getenv('POSTGRES_DB', 'fiscal_data123')
+                database = os.getenv('POSTGRES_DB', 'fiscal_data')
                 
                 db_url = f"postgresql://{user}:{password}@{host}:{port}/{database}"
             
@@ -262,11 +262,11 @@ class DatabaseManager:
                     RequestLog.created_at <= date_end
                 ).count()
                 
-                # Успешные запросы
+                # Успешные запросы (success, command)
                 successful_requests = session.query(RequestLog).filter(
                     RequestLog.created_at >= date_start,
                     RequestLog.created_at <= date_end,
-                    RequestLog.status == 'success'
+                    RequestLog.status.in_(['success', 'command'])
                 ).count()
                 
                 # Уникальные пользователи

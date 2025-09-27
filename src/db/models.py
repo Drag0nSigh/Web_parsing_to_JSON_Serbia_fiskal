@@ -63,3 +63,29 @@ class RequestLog(Base):
             'error_message': self.error_message,
             'created_at': self.created_at.isoformat() if self.created_at else None
         }
+
+
+class MessageLog(Base):
+    """Модель лога сообщений между пользователями и администратором"""
+    __tablename__ = 'message_logs'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(BigInteger, nullable=False, index=True)
+    username = Column(String(255), nullable=True)
+    direction = Column(String(20), nullable=False)  # 'user_to_admin' или 'admin_to_user'
+    message_type = Column(String(50), nullable=False)  # 'blocked_user_message', 'admin_response', etc.
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    def __repr__(self):
+        return f"<MessageLog(user_id={self.user_id}, direction='{self.direction}', type='{self.message_type}')>"
+
+    def to_dict(self):
+        """Преобразование в словарь"""
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'username': self.username,
+            'direction': self.direction,
+            'message_type': self.message_type,
+            'created_at': self.created_at.isoformat() if self.created_at else None
+        }
