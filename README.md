@@ -395,3 +395,7 @@ docker stats
 # Размер логов
 docker compose exec bot du -sh /app/log/*
 ```
+
+## Пример
+
+- **@ConvertingChekSerbianToRussiaBot**
