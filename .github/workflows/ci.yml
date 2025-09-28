@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  test:
+    name: Tests & Linting
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: test_fiscal_data
+          POSTGRES_USER: test_user  
+          POSTGRES_PASSWORD: test_password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    env:
+      # Test environment variables
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: test_fiscal_data
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      DATABASE_URL: postgresql://test_user:test_password@localhost:5432/test_fiscal_data
+      TG_TOKEN: "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+      ADMIN_ID: "123456789"
+      DAILY_REQUEST_LIMIT: "50"
+      LOG_RETENTION_DAYS: "7"
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+          
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget gnupg
+        
+    - name: Install Chrome and ChromeDriver
+      run: |
+        # Install Chrome
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+        sudo apt-get update
+        sudo apt-get install -y google-chrome-stable
+        
+        # Install ChromeDriver
+        CHROME_VERSION=$(google-chrome --version | cut -d ' ' -f3 | cut -d '.' -f1)
+        CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
+        wget -N "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
+        unzip chromedriver_linux64.zip
+        sudo mv chromedriver /usr/local/bin/
+        sudo chmod +x /usr/local/bin/chromedriver
+        
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r tests/requirements-test.txt
+        
+    - name: Run code formatting check
+      run: |
+        black --check --line-length=120 src/ tests/
+        
+    - name: Run import sorting check
+      run: |
+        isort --check-only --profile=black --line-length=120 src/ tests/
+        
+    - name: Run linting
+      run: |
+        flake8 src/ tests/ --max-line-length=120 --extend-ignore=E203
+        
+    - name: Wait for PostgreSQL to be ready
+      run: |
+        timeout 30 bash -c 'until pg_isready -h localhost -p 5432; do sleep 1; done'
+        
+    - name: Initialize database
+      run: |
+        cd src
+        python -c "
+        import os
+        os.environ.update({
+            'POSTGRES_HOST': 'localhost',
+            'POSTGRES_PORT': '5432', 
+            'POSTGRES_DB': 'test_fiscal_data',
+            'POSTGRES_USER': 'test_user',
+            'POSTGRES_PASSWORD': 'test_password'
+        })
+        from db.database import db_manager
+        db_manager.init_database()
+        print('Database initialized successfully')
+        "
+        
+    - name: Run tests
+      run: |
+        pytest tests/ \
+          --cov=src \
+          --cov-report=term-missing \
+          --cov-fail-under=80 \
+          -v \
+          --tb=short
