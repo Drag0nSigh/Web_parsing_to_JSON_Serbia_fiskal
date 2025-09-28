@@ -7,7 +7,7 @@ SQLAlchemy модели для базы данных
 
 from datetime import datetime
 from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, DateTime, Boolean
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 
 Base = declarative_base()

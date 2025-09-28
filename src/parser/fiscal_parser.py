@@ -105,6 +105,8 @@ class FiscalParser:
         # Уменьшаем время ожидания
         self.driver.implicitly_wait(5)
         self.driver.set_page_load_timeout(30)
+        
+        return self.driver
     
     def parse_url(self, url: str) -> SerbianFiscalData:
         """Парсинг фискальных данных по URL"""
@@ -619,6 +621,95 @@ class FiscalParser:
             logger.warning(f"⚠️ Не удалось распарсить число '{text}' -> '{cleaned_text}': {e}")
             return Decimal('0')
     
+    def _extract_knockout_data(self, soup: BeautifulSoup) -> Dict:
+        """Извлечение данных Knockout.js"""
+        data = {}
+        knockout_elements = soup.find_all(attrs={"data-bind": True})
+        for element in knockout_elements:
+            binding = element.get("data-bind", "")
+            if "text:" in binding:
+                field_name = binding.split("text:")[1].strip()
+                data[field_name] = element.get_text(strip=True)
+        return data
+    
+    def _extract_knockout_items(self, soup: BeautifulSoup) -> List[Dict]:
+        """Извлечение товаров через Knockout.js"""
+        items = []
+        # Ищем элементы с data-bind для товаров
+        item_elements = soup.find_all(attrs={"data-bind": lambda x: x and "foreach" in x})
+        
+        for element in item_elements:
+            # Ищем дочерние элементы с данными товаров
+            child_elements = element.find_all(attrs={"data-bind": True})
+            
+            # Группируем элементы по товарам
+            current_item = None
+            for child in child_elements:
+                binding = child.get("data-bind", "")
+                text = child.get_text(strip=True)
+                
+                if "text: name" in binding:
+                    # Если это новый товар, сохраняем предыдущий
+                    if current_item:
+                        items.append(current_item)
+                    
+                    # Создаем новый товар
+                    current_item = {
+                        'name': text,
+                        'quantity': 1,
+                        'price': Decimal('0'),
+                        'sum': Decimal('0'),
+                        'nds_type': 2,
+                        'payment_type': 1,
+                        'product_type': 1
+                    }
+                elif current_item:
+                    if "text: quantity" in binding:
+                        try:
+                            current_item['quantity'] = int(text)
+                        except ValueError:
+                            current_item['quantity'] = 1
+                    elif "text: unitPrice" in binding:
+                        current_item['price'] = self._parse_serbian_number(text)
+                    elif "text: amount" in binding:
+                        current_item['sum'] = self._parse_serbian_number(text)
+            
+            # Добавляем последний товар
+            if current_item:
+                items.append(current_item)
+        
+        return items
+    
+    def _parse_datetime(self, date_str: str) -> Optional[datetime]:
+        """Парсинг даты в сербском формате"""
+        if not date_str or not date_str.strip():
+            return None
+        
+        try:
+            # Сербский формат: DD.MM.YYYY. HH:MM:SS
+            return datetime.strptime(date_str.strip(), "%d.%m.%Y. %H:%M:%S")
+        except ValueError:
+            try:
+                # Альтернативный формат без точки в конце
+                return datetime.strptime(date_str.strip(), "%d.%m.%Y %H:%M:%S")
+            except ValueError:
+                return None
+    
+    def _extract_city_from_address(self, address: str) -> str:
+        """Извлечение города из адреса"""
+        if not address or not address.strip():
+            return "Unknown"
+        
+        # Ищем последнюю часть после запятой
+        parts = address.split(',')
+        if len(parts) > 1:
+            city = parts[-1].strip()
+            # Убираем скобки и дополнительные части
+            city = city.split('(')[0].strip()
+            return city if city else "Unknown"
+        
+        return "Unknown"
+    
     def close(self):
         """Закрытие браузера"""
         if self.driver:
@@ -626,6 +717,8 @@ class FiscalParser:
             self.driver = None
     
     def __enter__(self):
+        if self.driver is None:
+            self._setup_driver()
         return self
     
     def __exit__(self, exc_type, exc_val, exc_tb):
