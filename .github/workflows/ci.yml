@@ -86,7 +86,7 @@ jobs:
         # Автоматически исправляем форматирование
         black --line-length=120 src/ tests/
         isort --profile=black --line-length=120 src/ tests/
-        autoflake --in-place --remove-all-unused-imports --remove-duplicate-keys --remove-unused-variables src/ tests/
+        autoflake --in-place --remove-all-unused-imports --remove-duplicate-keys --remove-unused-variables --recursive src/ tests/
 
     - name: Run linting (relaxed)
       run: |
