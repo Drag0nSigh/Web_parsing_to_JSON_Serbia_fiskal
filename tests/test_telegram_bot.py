@@ -188,7 +188,7 @@ class TestTelegramBotCallbacks:
                     
                     mock_update.callback_query.edit_message_text.assert_called_once()
                     call_args = mock_update.callback_query.edit_message_text.call_args
-                        assert "📊" in call_args[0][0]  # Проверяем эмодзи статистики
+                    assert "📊" in call_args[0][0]  # Проверяем эмодзи статистики
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_test_success(self, mock_update, mock_context):

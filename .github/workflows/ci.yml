@@ -140,7 +140,7 @@ jobs:
         echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-      if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_SSH_KEY && secrets.DEPLOY_USER }}
+      if: secrets.DEPLOY_HOST && secrets.DEPLOY_SSH_KEY && secrets.DEPLOY_USER
       
     - name: Deploy via SSH
       run: |
@@ -178,7 +178,7 @@ jobs:
           echo "🎯 Services running:"
           docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
         EOF
-      if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_SSH_KEY && secrets.DEPLOY_USER }}
+      if: secrets.DEPLOY_HOST && secrets.DEPLOY_SSH_KEY && secrets.DEPLOY_USER
       
     - name: Notify deployment status
       run: |
