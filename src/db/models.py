@@ -5,8 +5,7 @@
 SQLAlchemy модели для базы данных
 """
 
-from datetime import datetime
-from sqlalchemy import Column, Integer, BigInteger, String, Text, Numeric, DateTime, Boolean
+from sqlalchemy import BigInteger, Boolean, Column, DateTime, Integer, String, Text
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 
@@ -15,7 +14,8 @@ Base = declarative_base()
 
 class User(Base):
     """Модель пользователя Telegram"""
-    __tablename__ = 'users'
+
+    __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     telegram_id = Column(BigInteger, unique=True, nullable=False, index=True)
@@ -30,23 +30,24 @@ class User(Base):
     def to_dict(self):
         """Преобразование в словарь"""
         return {
-            'id': self.id,
-            'telegram_id': self.telegram_id,
-            'username': self.username,
-            'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'last_activity': self.last_activity.isoformat() if self.last_activity else None
+            "id": self.id,
+            "telegram_id": self.telegram_id,
+            "username": self.username,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "last_activity": self.last_activity.isoformat() if self.last_activity else None,
         }
 
 
 class RequestLog(Base):
     """Модель лога запроса"""
-    __tablename__ = 'request_logs'
+
+    __tablename__ = "request_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, nullable=False, index=True)
     username = Column(String(255), nullable=True)
-    status = Column(String(50), default='success', nullable=False)
+    status = Column(String(50), default="success", nullable=False)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -56,18 +57,19 @@ class RequestLog(Base):
     def to_dict(self):
         """Преобразование в словарь"""
         return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'username': self.username,
-            'status': self.status,
-            'error_message': self.error_message,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            "id": self.id,
+            "user_id": self.user_id,
+            "username": self.username,
+            "status": self.status,
+            "error_message": self.error_message,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
 
 class MessageLog(Base):
     """Модель лога сообщений между пользователями и администратором"""
-    __tablename__ = 'message_logs'
+
+    __tablename__ = "message_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     sender_user_id = Column(BigInteger, nullable=False, index=True)
@@ -84,12 +86,12 @@ class MessageLog(Base):
     def to_dict(self):
         """Преобразование в словарь"""
         return {
-            'id': self.id,
-            'sender_user_id': self.sender_user_id,
-            'recipient_user_id': self.recipient_user_id,
-            'sender_username': self.username,
-            'recipient_username': self.recipient_username,
-            'direction': self.direction,
-            'message_type': self.message_type,
-            'created_at': self.created_at.isoformat() if self.created_at else None
+            "id": self.id,
+            "sender_user_id": self.sender_user_id,
+            "recipient_user_id": self.recipient_user_id,
+            "sender_username": self.username,
+            "recipient_username": self.recipient_username,
+            "direction": self.direction,
+            "message_type": self.message_type,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }

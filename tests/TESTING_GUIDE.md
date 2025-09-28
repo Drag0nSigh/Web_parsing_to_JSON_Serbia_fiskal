@@ -343,10 +343,10 @@ def test_function_name_success_scenario(fixture1, fixture2):
     # Arrange
     input_data = "test input"
     expected_result = "expected output"
-    
+
     # Act
     result = function_name(input_data)
-    
+
     # Assert
     assert result == expected_result
 ```
@@ -465,7 +465,7 @@ print(SerbianFiscalData.model_fields.keys())
 
 - [ ] Добавить property-based тесты (Hypothesis)
 - [ ] Интеграционные тесты с реальной БД
-- [ ] Performance тесты  
+- [ ] Performance тесты
 - [ ] Smoke тесты для CI/CD
 - [ ] Mutation тестирование
 

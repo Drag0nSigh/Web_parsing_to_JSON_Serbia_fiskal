@@ -6,6 +6,6 @@
 """
 
 from .database import DatabaseManager
-from .models import User, RequestLog
+from .models import RequestLog, User
 
-__all__ = ['DatabaseManager', 'User', 'RequestLog']
+__all__ = ["DatabaseManager", "User", "RequestLog"]

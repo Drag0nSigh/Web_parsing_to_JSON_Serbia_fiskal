@@ -5,10 +5,10 @@
 Скрипт для запуска телеграм бота
 """
 
-import sys
-import os
 import logging
+import sys
 from pathlib import Path
+
 # Добавляем корневую папку проекта в путь
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
@@ -24,7 +24,7 @@ logger = log_manager.setup_logging("startup", logging.INFO)
 # Импортируем и запускаем бота
 from bot_tg.telegram_bot import main
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # Очищаем временный файл перезапуска если он есть
     restart_file = Path("restart_bot.py")
     if restart_file.exists():
@@ -33,14 +33,15 @@ if __name__ == '__main__':
             logger.info("🧹 Очищен временный файл перезапуска")
         except:
             pass
-    
+
     logger.info("🤖 Запуск телеграм бота для парсинга фискальных данных...")
     logger.info("📋 Бот будет ожидать сообщения с ссылками на сербские фискальные чеки")
     logger.info("🔄 Для остановки нажмите Ctrl+C")
     logger.info("-" * 50)
-    
+
     try:
         import asyncio
+
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("\n🛑 Бот остановлен пользователем")

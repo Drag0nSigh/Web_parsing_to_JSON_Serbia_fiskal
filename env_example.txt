@@ -17,4 +17,3 @@ LOG_RETENTION_DAYS=30
 
 # Настройки лимитов
 DAILY_REQUEST_LIMIT=50
-

@@ -1,16 +1,18 @@
 """
 Модели Pydantic для валидации и сериализации фискальных данных
 """
+
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional, Union, Dict
-from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 from enum import Enum
+from typing import Dict, List, Optional
 
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class PaymentType(str, Enum):
     """Типы оплаты"""
+
     CASH = "cash"
     CARD = "card"
     ELECTRONIC = "electronic"
@@ -21,6 +23,7 @@ class PaymentType(str, Enum):
 
 class OperationType(int, Enum):
     """Типы операций"""
+
     SALE = 1
     RETURN = 2
     ADVANCE = 3
@@ -29,6 +32,7 @@ class OperationType(int, Enum):
 
 class TaxationType(int, Enum):
     """Типы налогообложения"""
+
     OSN = 1  # Общая система налогообложения
     USN_INCOME = 2  # УСН доходы
     USN_INCOME_EXPENSE = 3  # УСН доходы минус расходы
@@ -39,6 +43,7 @@ class TaxationType(int, Enum):
 
 class ProductType(int, Enum):
     """Типы товаров"""
+
     PRODUCT = 1
     SERVICE = 2
     WORK = 3
@@ -55,6 +60,7 @@ class ProductType(int, Enum):
 
 class NDSType(int, Enum):
     """Типы НДС"""
+
     NO_NDS = 0
     NDS_0 = 1
     NDS_10 = 2
@@ -65,6 +71,7 @@ class NDSType(int, Enum):
 
 class Item(BaseModel):
     """Товар/услуга в чеке"""
+
     name: str = Field(..., description="Наименование товара/услуги")
     quantity: int = Field(..., description="Количество")
     price: int = Field(..., description="Цена за единицу")
@@ -72,8 +79,8 @@ class Item(BaseModel):
     nds: int = Field(..., description="Тип НДС")
     paymentType: int = Field(..., description="Тип оплаты")
     productType: int = Field(..., description="Тип товара")
-    
-    @model_validator(mode='after')
+
+    @model_validator(mode="after")
     def validate_sum(self):
         """Проверка соответствия суммы количеству и цене"""
         expected_sum = self.quantity * self.price
@@ -84,17 +91,20 @@ class Item(BaseModel):
 
 class AmountsNds(BaseModel):
     """Суммы по типам НДС"""
+
     nds: int = Field(..., description="Тип НДС")
     ndsSum: int = Field(..., description="Сумма НДС")
 
 
 class AmountsReceiptNds(BaseModel):
     """Суммы НДС по чеку"""
+
     amountsNds: List[AmountsNds] = Field(..., description="Список сумм по типам НДС")
 
 
 class Receipt(BaseModel):
     """Фискальный чек"""
+
     # Порядок полей как в rus.json
     cashTotalSum: int = Field(default=0, description="Сумма наличными")
     code: int = Field(..., description="Код документа")
@@ -123,8 +133,8 @@ class Receipt(BaseModel):
     totalSum: int = Field(..., description="Общая сумма чека")
     user: str = Field(..., description="Наименование организации")
     userInn: str = Field(..., description="ИНН организации")
-    
-    @model_validator(mode='after')
+
+    @model_validator(mode="after")
     def validate_total_sum(self):
         """Проверка соответствия общей суммы сумме товаров"""
         items_sum = sum(item.sum for item in self.items)
@@ -135,36 +145,37 @@ class Receipt(BaseModel):
 
 class Document(BaseModel):
     """Документ"""
+
     receipt: Receipt = Field(..., description="Фискальный чек")
 
 
 class Ticket(BaseModel):
     """Билет/документ"""
+
     document: Document = Field(..., description="Документ")
 
 
 class FiscalData(BaseModel):
     """Основная модель фискальных данных"""
+
     id: Optional[str] = Field(None, alias="_id", description="Идентификатор")
     created_at: Optional[str] = Field(None, alias="createdAt", description="Дата создания")
     ticket: Ticket = Field(..., description="Билет с фискальными данными")
-    
-    model_config = ConfigDict(
-        json_schema_serialization_defaults_required=True
-    )
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
 
 # Модели для сербских фискальных данных
 class SerbianFiscalData(BaseModel):
     """Модель для сербских фискальных данных (исходные данные из HTML)"""
-    
+
     # Информация о продавце
     tin: str = Field(..., description="ПИБ (налоговый номер)")
     shop_name: str = Field(..., description="Название магазина")
     shop_address: str = Field(..., description="Адрес магазина")
     city: str = Field(..., description="Город")
     administrative_unit: str = Field(..., description="Општина")
-    
+
     # Информация о чеке
     invoice_number: str = Field(..., description="Номер чека")
     total_amount: Decimal = Field(..., description="Общая сумма")
@@ -173,21 +184,21 @@ class SerbianFiscalData(BaseModel):
     invoice_counter_extension: str = Field(..., description="Расширение счетчика чека")
     signed_by: str = Field(..., description="Подписан")
     sdc_date_time: datetime = Field(..., description="Время ПФР")
-    
+
     # Дополнительная информация
     buyer_id: Optional[str] = Field(None, description="ID покупателя")
     requested_by: str = Field(..., description="Затребован")
     invoice_type: str = Field(..., description="Тип чека")
     transaction_type: str = Field(..., description="Тип транзакции")
-    
+
     # Статус
     status: str = Field(..., description="Статус чека")
-    
+
     # Товары
     items: List[Dict] = Field(default_factory=list, description="Список товаров")
-    
+
     model_config = ConfigDict(
         json_schema_serialization_defaults_required=True,
         ser_json_datetime=lambda v: v.isoformat(),
-        ser_json_decimal=lambda v: float(v)
+        ser_json_decimal=lambda v: float(v),
     )
