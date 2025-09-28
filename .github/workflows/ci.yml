@@ -59,26 +59,11 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-pip-
           
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y wget gnupg
-        
     - name: Install Chrome and ChromeDriver
-      run: |
-        # Install Chrome
-        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-        echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
-        
-        # Install ChromeDriver
-        CHROME_VERSION=$(google-chrome --version | cut -d ' ' -f3 | cut -d '.' -f1)
-        CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION}")
-        wget -N "https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip"
-        unzip chromedriver_linux64.zip
-        sudo mv chromedriver /usr/local/bin/
-        sudo chmod +x /usr/local/bin/chromedriver
+      uses: browser-actions/setup-chrome@v1
+      with:
+        chrome-version: stable
+        chrome-driver-version: stable
         
     - name: Install Python dependencies
       run: |
@@ -127,3 +112,69 @@ jobs:
           --cov-fail-under=80 \
           -v \
           --tb=short
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup SSH
+      run: |
+        mkdir -p ~/.ssh/
+        echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+      if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_SSH_KEY }}
+      
+    - name: Deploy via SSH
+      run: |
+        ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+          cd /opt/fiscal-parser || exit 1
+          
+          echo "🔄 Updating code..."
+          git pull origin main
+          
+          echo "🛑 Stopping services..."
+          docker-compose down
+          
+          echo "📦 Building new images..."
+          docker-compose build --no-cache
+          
+          echo "🚀 Starting services..."
+          docker-compose up -d
+          
+          echo "🧹 Cleaning up..."
+          docker system prune -f
+          
+          echo "✅ Deployment completed successfully!"
+        EOF
+      if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_SSH_KEY }}
+      
+    - name: Health Check
+      run: |
+        echo "⏳ Waiting for service to start..."
+        sleep 30
+        
+        # Проверяем доступность сервиса
+        if curl -f -s --max-time 30 http://${{ secrets.DEPLOY_HOST }}:8080/health > /dev/null 2>&1; then
+          echo "✅ Service is healthy!"
+        else
+          echo "❌ Health check failed!"
+          exit 1
+        fi
+      if: ${{ secrets.DEPLOY_HOST && secrets.HEALTH_CHECK_URL }}
+      continue-on-error: true
+      
+    - name: Notify deployment status
+      run: |
+        if [ "${{ job.status }}" = "success" ]; then
+          echo "✅ Deployment to production completed successfully!"
+        else
+          echo "❌ Deployment failed!"
+        fi
