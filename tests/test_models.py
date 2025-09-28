@@ -1,5 +1,5 @@
 """
-Working tests for actual project models
+Рабочие тесты для реальных моделей проекта
 """
 import pytest
 from decimal import Decimal
@@ -14,15 +14,15 @@ from models.fiscal_models import (
 
 
 class TestItemWorking:
-    """Tests for Item model - working version."""
+    """Тесты для модели Item - рабочая версия."""
     
     def test_valid_item_creation(self):
-        """Test creating valid item."""
+        """Тест создания валидного товара."""
         item = Item(
             name="Test Item",
             quantity=2,
-            price=10000,  # 100.00 in kopecks
-            sum=20000,    # 200.00 in kopecks
+            price=10000,  # 100.00 в копейках
+            sum=20000,    # 200.00 в копейках
             nds=2,
             paymentType=4,
             productType=1
@@ -33,7 +33,7 @@ class TestItemWorking:
         assert item.sum == 20000
     
     def test_item_sum_validation_passes(self):
-        """Test sum validation passes with correct values."""
+        """Тест прохождения валидации суммы с корректными значениями."""
         item = Item(
             name="Valid Item",
             quantity=3,
@@ -46,13 +46,13 @@ class TestItemWorking:
         assert item.sum == 15000
     
     def test_item_sum_validation_fails(self):
-        """Test sum validation fails with incorrect values."""
+        """Тест неудачной валидации суммы с некорректными значениями."""
         with pytest.raises(ValidationError):
             Item(
                 name="Invalid Item",
                 quantity=2,
                 price=10000,
-                sum=50000,  # Wrong sum: should be 20000
+                sum=50000,  # Неправильная сумма: должно быть 20000
                 nds=2,
                 paymentType=4,
                 productType=1
@@ -60,10 +60,10 @@ class TestItemWorking:
 
 
 class TestSerbianFiscalDataWorking:
-    """Tests for SerbianFiscalData model - working version."""
+    """Тесты для модели SerbianFiscalData - рабочая версия."""
     
     def get_valid_serbian_data(self):
-        """Helper method to get valid Serbian fiscal data."""
+        """Вспомогательный метод для получения валидных сербских фискальных данных."""
         return {
             # Информация о продавце
             "tin": "123456789",
@@ -101,7 +101,7 @@ class TestSerbianFiscalDataWorking:
         }
     
     def test_valid_serbian_data_creation(self):
-        """Test creating valid Serbian fiscal data."""
+        """Тест создания валидных сербских фискальных данных."""
         data = SerbianFiscalData(**self.get_valid_serbian_data())
         
         assert data.tin == "123456789"
@@ -111,7 +111,7 @@ class TestSerbianFiscalDataWorking:
         assert data.status == "COMPLETED"
     
     def test_serbian_data_with_optional_buyer_id(self):
-        """Test Serbian data with optional buyer_id."""
+        """Тест сербских данных с опциональным buyer_id."""
         data_dict = self.get_valid_serbian_data()
         data_dict["buyer_id"] = "BUYER123"
         
@@ -119,7 +119,7 @@ class TestSerbianFiscalDataWorking:
         assert data.buyer_id == "BUYER123"
     
     def test_serbian_data_with_multiple_items(self):
-        """Test Serbian data with multiple items."""
+        """Тест сербских данных с несколькими товарами."""
         data_dict = self.get_valid_serbian_data()
         data_dict["items"] = [
             {
@@ -143,15 +143,15 @@ class TestSerbianFiscalDataWorking:
         assert data.items[1]["name"] == "Item 2"
     
     def test_serbian_data_missing_required_field(self):
-        """Test Serbian data validation with missing required field."""
+        """Тест валидации сербских данных с отсутствующим обязательным полем."""
         data_dict = self.get_valid_serbian_data()
-        del data_dict["tin"]  # Remove required field
+        del data_dict["tin"]  # Удаляем обязательное поле
         
         with pytest.raises(ValidationError):
             SerbianFiscalData(**data_dict)
     
     def test_serbian_data_with_special_characters(self):
-        """Test Serbian data with special characters."""
+        """Тест сербских данных со специальными символами."""
         data_dict = self.get_valid_serbian_data()
         data_dict.update({
             "shop_name": "Тест Шоп ćčŽšđ",
@@ -175,10 +175,10 @@ class TestSerbianFiscalDataWorking:
 
 
 class TestModelValidationWorking:
-    """Tests for model validation - working version."""
+    """Тесты для валидации моделей - рабочая версия."""
     
     def test_item_with_zero_values(self):
-        """Test item with zero values."""
+        """Тест товара с нулевыми значениями."""
         item = Item(
             name="Free Item",
             quantity=1,
@@ -192,8 +192,8 @@ class TestModelValidationWorking:
         assert item.sum == 0
     
     def test_large_amounts_in_item(self):
-        """Test handling of large amounts in items."""
-        large_amount = 999999999  # Large amount in kopecks
+        """Тест обработки больших сумм в товарах."""
+        large_amount = 999999999  # Большая сумма в копейках
         
         item = Item(
             name="Expensive Item",
@@ -208,13 +208,13 @@ class TestModelValidationWorking:
         assert item.sum == large_amount
     
     def test_item_sum_tolerance(self):
-        """Test item sum validation tolerance."""
-        # Should pass with small rounding difference (within 5 kopecks)
+        """Тест толерантности валидации суммы товара."""
+        # Должен проходить с небольшой разницей округления (в пределах 5 копеек)
         item = Item(
             name="Tolerance Test",
             quantity=3,
-            price=3333,  # 33.33 kopecks
-            sum=10000,   # 100.00 kopecks (3333*3=9999, diff=1 kopeck)
+            price=3333,  # 33.33 копейки
+            sum=10000,   # 100.00 копеек (3333*3=9999, разница=1 копейка)
             nds=2,
             paymentType=4,
             productType=1
@@ -222,13 +222,13 @@ class TestModelValidationWorking:
         assert item.sum == 10000
     
     def test_item_sum_exceeds_tolerance(self):
-        """Test item sum validation fails when exceeding tolerance."""
+        """Тест неудачной валидации суммы товара при превышении толерантности."""
         with pytest.raises(ValidationError):
             Item(
                 name="Tolerance Fail",
                 quantity=2,
                 price=1000,   # 10.00
-                sum=5000,     # 50.00 (should be 20.00, diff > 5 kopecks)
+                sum=5000,     # 50.00 (должно быть 20.00, разница > 5 копеек)
                 nds=2,
                 paymentType=4,
                 productType=1
@@ -236,10 +236,10 @@ class TestModelValidationWorking:
 
 
 class TestRealWorldScenarios:
-    """Tests for real-world scenarios."""
+    """Тесты для реальных сценариев."""
     
     def test_typical_grocery_receipt(self):
-        """Test typical grocery receipt scenario."""
+        """Тест типичного сценария продуктового чека."""
         grocery_data = {
             "tin": "987654321",
             "shop_name": "Maxi Market",
@@ -294,7 +294,7 @@ class TestRealWorldScenarios:
         assert "Novi Sad" in data.city
     
     def test_restaurant_receipt(self):
-        """Test restaurant receipt scenario."""
+        """Тест сценария ресторанного чека."""
         restaurant_data = {
             "tin": "111222333",
             "shop_name": "Restoran Tri Šešira", 

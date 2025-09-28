@@ -467,12 +467,10 @@ pre-commit run --all-files
 
 ```bash
 # Обязательные секреты для деплоя
-DEPLOY_HOST=your_server_ip        # IP адрес сервера
-DEPLOY_USER=deploy_user           # Пользователь для SSH
-DEPLOY_SSH_KEY=your_ssh_key       # Приватный SSH ключ
+DEPLOY_HOST=your_server_ip              # IP адрес сервера
+DEPLOY_USER=fiskal_serbia_deploy        # Пользователь для SSH
+DEPLOY_SSH_KEY=your_ssh_key             # Приватный SSH ключ
 
-# Опциональные
-HEALTH_CHECK_URL=http://host:8080/health  # URL для проверки здоровья
 ```
 
 **Подробнее**: `.github/workflows/README.md`

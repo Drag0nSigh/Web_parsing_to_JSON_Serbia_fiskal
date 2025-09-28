@@ -1,15 +1,15 @@
 """
-Tests for telegram bot in bot_tg/telegram_bot.py
+Тесты для телеграм бота в bot_tg/telegram_bot.py
 """
 import pytest
 import os
 from unittest.mock import Mock, patch, AsyncMock, MagicMock
 from datetime import datetime
 
-# Mock environment variables before importing bot modules
+# Мокаем переменные окружения перед импортом модулей бота
 @pytest.fixture(autouse=True)
 def mock_env_vars():
-    """Mock environment variables for all tests."""
+    """Мокаем переменные окружения для всех тестов."""
     with patch.dict(os.environ, {
         'TG_TOKEN': '123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ',
         'ADMIN_ID': '123456789',
@@ -17,9 +17,9 @@ def mock_env_vars():
     }):
         yield
 
-# Import telegram bot module with proper error handling
+# Импортируем модуль телеграм бота с корректной обработкой ошибок
 try:
-    # Mock the environment before importing
+    # Мокаем окружение перед импортом
     with patch.dict(os.environ, {
         'TG_TOKEN': '123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZ',
         'ADMIN_ID': '123456789',
@@ -34,23 +34,23 @@ except ImportError as e:
 
 
 class TestTelegramBotMenu:
-    """Tests for menu creation functions."""
+    """Тесты для функций создания меню."""
     
     def test_create_main_menu(self):
-        """Test creation of main menu."""
+        """Тест создания главного меню."""
         menu = create_main_menu()
         assert menu is not None
         assert hasattr(menu, 'inline_keyboard')
-        assert len(menu.inline_keyboard) == 0  # Empty menu for regular users
+        assert len(menu.inline_keyboard) == 0  # Пустое меню для обычных пользователей
     
     def test_create_admin_menu(self):
-        """Test creation of admin menu."""
+        """Тест создания админского меню."""
         menu = create_admin_menu()
         assert menu is not None
         assert hasattr(menu, 'inline_keyboard')
-        assert len(menu.inline_keyboard) == 4  # 4 rows of buttons
+        assert len(menu.inline_keyboard) == 4  # 4 ряда кнопок
         
-        # Check that all expected buttons are present
+        # Проверяем, что все ожидаемые кнопки присутствуют
         all_buttons = []
         for row in menu.inline_keyboard:
             for button in row:
@@ -66,11 +66,11 @@ class TestTelegramBotMenu:
 
 
 class TestTelegramBotCallbacks:
-    """Tests for button callback handling."""
+    """Тесты для обработки колбэков кнопок."""
     
     @pytest.fixture
     def mock_update(self):
-        """Create mock update object."""
+        """Создаем мок объект update."""
         update = Mock()
         update.callback_query = Mock()
         update.callback_query.answer = AsyncMock()
@@ -83,19 +83,19 @@ class TestTelegramBotCallbacks:
     
     @pytest.fixture
     def mock_context(self):
-        """Create mock context object."""
+        """Создаем мок объект context."""
         context = Mock()
         context.processing_callbacks = set()
         return context
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_logs_success(self, mock_update, mock_context):
-        """Test admin logs callback with successful data retrieval."""
+        """Тест колбэка админских логов с успешным получением данных."""
         mock_update.callback_query.data = "admin_logs"
         
-        # Mock admin check
+        # Мокаем проверку админа
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
-            # Mock database function
+            # Мокаем функцию базы данных
             with patch('db.utils.get_recent_logs') as mock_get_logs:
                 mock_get_logs.return_value = [
                     {
@@ -108,17 +108,17 @@ class TestTelegramBotCallbacks:
                 
                 await button_callback(mock_update, mock_context)
                 
-                # Verify callback was answered
+                # Проверяем, что колбэк был отвечен
                 mock_update.callback_query.answer.assert_called_once()
                 
-                # Verify message was edited
+                # Проверяем, что сообщение было отредактировано
                 mock_update.callback_query.edit_message_text.assert_called_once()
                 call_args = mock_update.callback_query.edit_message_text.call_args
-                assert "📝" in call_args[0][0]  # Check for logs emoji
+                assert "📝" in call_args[0][0]  # Проверяем эмодзи логов
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_logs_no_data(self, mock_update, mock_context):
-        """Test admin logs callback with no data."""
+        """Тест колбэка админских логов без данных."""
         mock_update.callback_query.data = "admin_logs"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
@@ -133,7 +133,7 @@ class TestTelegramBotCallbacks:
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_logs_not_admin(self, mock_update, mock_context):
-        """Test admin logs callback for non-admin user."""
+        """Тест колбэка админских логов для не-админа."""
         mock_update.callback_query.data = "admin_logs"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=False):
@@ -145,7 +145,7 @@ class TestTelegramBotCallbacks:
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_users_success(self, mock_update, mock_context):
-        """Test admin users callback with successful data retrieval."""
+        """Тест колбэка админских пользователей с успешным получением данных."""
         mock_update.callback_query.data = "admin_users"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
@@ -162,11 +162,11 @@ class TestTelegramBotCallbacks:
                 
                 mock_update.callback_query.edit_message_text.assert_called_once()
                 call_args = mock_update.callback_query.edit_message_text.call_args
-                assert "👥" in call_args[0][0]  # Check for users emoji
+                assert "👥" in call_args[0][0]  # Проверяем эмодзи пользователей
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_stats_success(self, mock_update, mock_context):
-        """Test admin stats callback with successful data retrieval."""
+        """Тест колбэка админской статистики с успешным получением данных."""
         mock_update.callback_query.data = "admin_stats"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
@@ -188,11 +188,11 @@ class TestTelegramBotCallbacks:
                     
                     mock_update.callback_query.edit_message_text.assert_called_once()
                     call_args = mock_update.callback_query.edit_message_text.call_args
-                    assert "📊" in call_args[0][0]  # Check for stats emoji
+                        assert "📊" in call_args[0][0]  # Проверяем эмодзи статистики
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_test_success(self, mock_update, mock_context):
-        """Test admin test callback with successful parser test."""
+        """Тест колбэка админского теста с успешным тестом парсера."""
         mock_update.callback_query.data = "admin_test"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
@@ -201,16 +201,16 @@ class TestTelegramBotCallbacks:
                 
                 await button_callback(mock_update, mock_context)
                 
-                # Should be called twice: once for loading message, once for result
+                # Должен быть вызван дважды: один раз для сообщения загрузки, один раз для результата
                 assert mock_update.callback_query.edit_message_text.call_count == 2
                 
-                # Check final message contains success indicators
+                # Проверяем, что финальное сообщение содержит индикаторы успеха
                 final_call = mock_update.callback_query.edit_message_text.call_args_list[-1]
-                assert "✅" in final_call[0][0]  # Success emoji
+                assert "✅" in final_call[0][0]  # Эмодзи успеха
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_test_parser_error(self, mock_update, mock_context):
-        """Test admin test callback with parser error."""
+        """Тест колбэка админского теста с ошибкой парсера."""
         mock_update.callback_query.data = "admin_test"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
@@ -219,16 +219,16 @@ class TestTelegramBotCallbacks:
                 
                 await button_callback(mock_update, mock_context)
                 
-                # Should be called twice: once for loading message, once for result
+                # Должен быть вызван дважды: один раз для сообщения загрузки, один раз для результата
                 assert mock_update.callback_query.edit_message_text.call_count == 2
                 
-                # Check final message contains error indicators
+                # Проверяем, что финальное сообщение содержит индикаторы ошибки
                 final_call = mock_update.callback_query.edit_message_text.call_args_list[-1]
-                assert "❌" in final_call[0][0]  # Error emoji
+                assert "❌" in final_call[0][0]  # Эмодзи ошибки
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_send_message(self, mock_update, mock_context):
-        """Test admin send message callback."""
+        """Тест колбэка админской отправки сообщения."""
         mock_update.callback_query.data = "admin_send_message"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
@@ -236,14 +236,14 @@ class TestTelegramBotCallbacks:
             
             mock_update.callback_query.edit_message_text.assert_called_once()
             call_args = mock_update.callback_query.edit_message_text.call_args
-            assert "📨" in call_args[0][0]  # Check for send message emoji
+            assert "📨" in call_args[0][0]  # Проверяем эмодзи отправки сообщения
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_status_success(self, mock_update, mock_context):
-        """Test admin status callback with successful system info."""
+        """Тест колбэка админского статуса с успешной информацией о системе."""
         mock_update.callback_query.data = "admin_status"
         
-        # Мокируем psutil и platform модули для admin_status
+        # Мокаем модули psutil и platform для admin_status
         mock_psutil = Mock()
         mock_psutil.cpu_percent.return_value = 25.5
         mock_psutil.virtual_memory.return_value = Mock(percent=60, used=8*1024**3, total=16*1024**3)
@@ -270,11 +270,11 @@ class TestTelegramBotCallbacks:
                         
                         mock_update.callback_query.edit_message_text.assert_called_once()
                         call_args = mock_update.callback_query.edit_message_text.call_args
-                        assert "🖥️" in call_args[0][0]  # Check for system emoji
+                        assert "🖥️" in call_args[0][0]  # Проверяем эмодзи системы
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_activate(self, mock_update, mock_context):
-        """Test admin activate callback."""
+        """Тест колбэка админской активации."""
         mock_update.callback_query.data = "admin_activate"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
@@ -282,11 +282,11 @@ class TestTelegramBotCallbacks:
             
             mock_update.callback_query.edit_message_text.assert_called_once()
             call_args = mock_update.callback_query.edit_message_text.call_args
-            assert "✅" in call_args[0][0]  # Check for activate emoji
+            assert "✅" in call_args[0][0]  # Проверяем эмодзи активации
     
     @pytest.mark.asyncio
     async def test_button_callback_admin_deactivate(self, mock_update, mock_context):
-        """Test admin deactivate callback."""
+        """Тест колбэка админской деактивации."""
         mock_update.callback_query.data = "admin_deactivate"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
@@ -294,22 +294,22 @@ class TestTelegramBotCallbacks:
             
             mock_update.callback_query.edit_message_text.assert_called_once()
             call_args = mock_update.callback_query.edit_message_text.call_args
-            assert "🚫" in call_args[0][0]  # Check for deactivate emoji
+            assert "🚫" in call_args[0][0]  # Проверяем эмодзи деактивации
     
     @pytest.mark.asyncio
     async def test_button_callback_unknown_data(self, mock_update, mock_context):
-        """Test button callback with unknown data."""
+        """Тест колбэка кнопки с неизвестными данными."""
         mock_update.callback_query.data = "unknown_callback"
         
         await button_callback(mock_update, mock_context)
         
-        # Should only answer the callback, not edit message
+        # Должен только ответить на колбэк, не редактировать сообщение
         mock_update.callback_query.answer.assert_called_once()
         mock_update.callback_query.edit_message_text.assert_not_called()
     
     @pytest.mark.asyncio
     async def test_button_callback_processing_callbacks_tracking(self, mock_update, mock_context):
-        """Test that processing callbacks are properly tracked."""
+        """Тест того, что обрабатываемые колбэки правильно отслеживаются."""
         mock_update.callback_query.data = "admin_logs"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
@@ -318,16 +318,16 @@ class TestTelegramBotCallbacks:
                 
                 await button_callback(mock_update, mock_context)
                 
-                # Check that callback ID was added and removed from processing set
+                # Проверяем, что ID колбэка был добавлен и удален из набора обработки
                 assert mock_update.callback_query.id not in mock_context.processing_callbacks
 
 
 class TestTelegramBotErrorHandler:
-    """Tests for error handler."""
+    """Тесты для обработчика ошибок."""
     
     @pytest.mark.asyncio
     async def test_error_handler_message_not_modified(self):
-        """Test error handler ignores 'Message is not modified' error."""
+        """Тест обработчика ошибок игнорирует ошибку 'Message is not modified'."""
         update = Mock()
         context = Mock()
         context.error = Exception("Message is not modified")
@@ -335,13 +335,13 @@ class TestTelegramBotErrorHandler:
         with patch('bot_tg.telegram_bot.logger') as mock_logger:
             await error_handler(update, context)
             
-            # Should log info about ignoring the error
+            # Должен логировать информацию об игнорировании ошибки
             mock_logger.info.assert_called_once()
             assert "Message is not modified" in mock_logger.info.call_args[0][0]
     
     @pytest.mark.asyncio
     async def test_error_handler_general_error(self):
-        """Test error handler for general errors."""
+        """Тест обработчика ошибок для общих ошибок."""
         update = Mock()
         update.effective_message = Mock()
         update.effective_message.reply_text = AsyncMock()
@@ -351,17 +351,17 @@ class TestTelegramBotErrorHandler:
         with patch('bot_tg.telegram_bot.logger') as mock_logger:
             await error_handler(update, context)
             
-            # Should log the error
+            # Должен логировать ошибку
             mock_logger.error.assert_called_once()
             
-            # Should reply to user
+            # Должен ответить пользователю
             update.effective_message.reply_text.assert_called_once()
             call_args = update.effective_message.reply_text.call_args[0][0]
             assert "Произошла внутренняя ошибка" in call_args
     
     @pytest.mark.asyncio
     async def test_error_handler_no_effective_message(self):
-        """Test error handler when there's no effective message."""
+        """Тест обработчика ошибок когда нет эффективного сообщения."""
         update = Mock()
         update.effective_message = None
         context = Mock()
@@ -370,59 +370,59 @@ class TestTelegramBotErrorHandler:
         with patch('bot_tg.telegram_bot.logger') as mock_logger:
             await error_handler(update, context)
             
-            # Should log the error
+            # Должен логировать ошибку
             mock_logger.error.assert_called_once()
             
-            # Should not try to reply since there's no effective message
-            # (This is the current behavior, but could be improved)
+            # Не должен пытаться ответить, так как нет эффективного сообщения
+            # (Это текущее поведение, но может быть улучшено)
 
 
 class TestTelegramBotMain:
-    """Tests for main function."""
+    """Тесты для главной функции."""
     
     def test_tg_token_validation(self):
-        """Test that TG_TOKEN is properly validated."""
-        # This test verifies the token validation logic in the module
+        """Тест того, что TG_TOKEN правильно валидируется."""
+        # Этот тест проверяет логику валидации токена в модуле
         assert TG_TOKEN is not None
-        assert ':' in TG_TOKEN  # Token should be in format "BOT_ID:TOKEN"
+        assert ':' in TG_TOKEN  # Токен должен быть в формате "BOT_ID:TOKEN"
     
     @patch('bot_tg.telegram_bot.init_database')
     @patch('bot_tg.telegram_bot.Application')
     @patch('bot_tg.telegram_bot.logger')
     def test_main_success(self, mock_logger, mock_app_class, mock_init_db):
-        """Test successful main function execution."""
-        # Mock application
+        """Тест успешного выполнения главной функции."""
+        # Мокаем приложение
         mock_app = Mock()
         mock_app_class.builder.return_value.token.return_value.build.return_value = mock_app
         
-        # Mock init_database to not raise exception
+        # Мокаем init_database чтобы не вызывать исключение
         mock_init_db.return_value = None
         
-        # This would normally run the bot, but we'll just test the setup
+        # Это обычно запустило бы бота, но мы просто тестируем настройку
         try:
             main()
         except SystemExit:
-            # Expected when run_polling is called
+            # Ожидается когда вызывается run_polling
             pass
         
-        # Verify database was initialized
+        # Проверяем, что база данных была инициализирована
         mock_init_db.assert_called_once()
         
-        # Verify application was created
+        # Проверяем, что приложение было создано
         mock_app_class.builder.assert_called_once()
     
     @patch('bot_tg.telegram_bot.init_database')
     @patch('bot_tg.telegram_bot.logger')
     def test_main_database_error(self, mock_logger, mock_init_db):
-        """Test main function with database initialization error."""
-        # Mock init_database to raise exception
+        """Тест главной функции с ошибкой инициализации базы данных."""
+        # Мокаем init_database чтобы вызвать исключение
         mock_init_db.side_effect = Exception("Database error")
         
-        # Should return early on database error
+        # Должен вернуться рано при ошибке базы данных
         result = main()
         assert result is None
         
-        # Verify error was logged
+        # Проверяем, что ошибка была залогирована
         mock_logger.error.assert_called_once()
         assert "Ошибка инициализации БД" in mock_logger.error.call_args[0][0]
     
@@ -430,29 +430,29 @@ class TestTelegramBotMain:
     @patch('bot_tg.telegram_bot.Application')
     @patch('bot_tg.telegram_bot.logger')
     def test_main_application_error(self, mock_logger, mock_app_class, mock_init_db):
-        """Test main function with application creation error."""
-        # Mock init_database to succeed
+        """Тест главной функции с ошибкой создания приложения."""
+        # Мокаем init_database чтобы успешно выполниться
         mock_init_db.return_value = None
         
-        # Mock Application to raise exception
+        # Мокаем Application чтобы вызвать исключение
         mock_app_class.builder.return_value.token.return_value.build.side_effect = Exception("App error")
         
-        # Should raise the exception
+        # Должен вызвать исключение
         with pytest.raises(Exception, match="App error"):
             main()
         
-        # Verify error was logged
+        # Проверяем, что ошибка была залогирована
         mock_logger.error.assert_called_once()
         assert "Ошибка создания приложения Telegram" in mock_logger.error.call_args[0][0]
 
 
 class TestTelegramBotIntegration:
-    """Integration tests for telegram bot."""
+    """Интеграционные тесты для телеграм бота."""
     
     @pytest.mark.asyncio
     async def test_full_callback_flow(self):
-        """Test complete callback flow from start to finish."""
-        # Create mock objects
+        """Тест полного потока колбэков от начала до конца."""
+        # Создаем мок объекты
         update = Mock()
         update.callback_query = Mock()
         update.callback_query.answer = AsyncMock()
@@ -465,7 +465,7 @@ class TestTelegramBotIntegration:
         context = Mock()
         context.processing_callbacks = set()
         
-        # Test admin logs callback
+        # Тестируем колбэк админских логов
         update.callback_query.data = "admin_logs"
         
         with patch('bot_tg.telegram_bot.is_admin', return_value=True):
@@ -481,29 +481,29 @@ class TestTelegramBotIntegration:
                 
                 await button_callback(update, context)
                 
-                # Verify all expected calls were made
+                # Проверяем, что все ожидаемые вызовы были сделаны
                 update.callback_query.answer.assert_called_once()
                 update.callback_query.edit_message_text.assert_called_once()
                 
-                # Verify callback was properly tracked
+                # Проверяем, что колбэк был правильно отслежен
                 assert update.callback_query.id not in context.processing_callbacks
     
     def test_menu_creation_consistency(self):
-        """Test that menu creation functions return consistent types."""
+        """Тест того, что функции создания меню возвращают согласованные типы."""
         main_menu = create_main_menu()
         admin_menu = create_admin_menu()
         
-        # Both should return InlineKeyboardMarkup objects
+        # Оба должны возвращать объекты InlineKeyboardMarkup
         assert hasattr(main_menu, 'inline_keyboard')
         assert hasattr(admin_menu, 'inline_keyboard')
         
-        # Main menu should be empty
+        # Главное меню должно быть пустым
         assert len(main_menu.inline_keyboard) == 0
         
-        # Admin menu should have buttons
+        # Админское меню должно иметь кнопки
         assert len(admin_menu.inline_keyboard) > 0
         
-        # All buttons should have proper structure
+        # Все кнопки должны иметь правильную структуру
         for row in admin_menu.inline_keyboard:
             for button in row:
                 assert hasattr(button, 'text')

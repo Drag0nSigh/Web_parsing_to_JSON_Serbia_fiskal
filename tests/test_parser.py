@@ -1,5 +1,5 @@
 """
-Tests for fiscal parser in parser/fiscal_parser.py
+Тесты для фискального парсера в parser/fiscal_parser.py
 """
 import pytest
 from unittest.mock import Mock, patch, MagicMock
@@ -15,10 +15,10 @@ from parser.fiscal_parser import (
 
 
 class TestFiscalParser:
-    """Tests for FiscalParser class."""
+    """Тесты для класса FiscalParser."""
     
     def test_parser_initialization(self):
-        """Test parser initialization."""
+        """Тест инициализации парсера."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
             mock_setup.return_value = None
             parser = FiscalParser(headless=True)
@@ -26,48 +26,48 @@ class TestFiscalParser:
             assert parser.driver is None
     
     def test_context_manager_setup_teardown(self, mock_selenium_driver):
-        """Test context manager setup and teardown."""
+        """Тест настройки и завершения контекстного менеджера."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
             mock_setup.return_value = mock_selenium_driver
             
             with FiscalParser() as parser:
-                # The driver should be set by the context manager
-                # Since we're mocking _setup_driver, we need to set it manually
+                # Драйвер должен быть установлен контекстным менеджером
+                # Поскольку мы мокаем _setup_driver, нам нужно установить его вручную
                 parser.driver = mock_selenium_driver
                 assert parser.driver == mock_selenium_driver
-                # _setup_driver is called twice: once in __init__ and once in __enter__
+                # _setup_driver вызывается дважды: один раз в __init__ и один раз в __enter__
                 assert mock_setup.call_count == 2
             
-            # Driver should be quit after context exit
+            # Драйвер должен быть закрыт после выхода из контекста
             mock_selenium_driver.quit.assert_called_once()
     
     def test_context_manager_exception_handling(self, mock_selenium_driver):
-        """Test context manager handles exceptions properly."""
+        """Тест корректной обработки исключений контекстным менеджером."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
             mock_setup.return_value = mock_selenium_driver
             
             try:
                 with FiscalParser() as parser:
-                    # Set the driver manually for the test
+                    # Устанавливаем драйвер вручную для теста
                     parser.driver = mock_selenium_driver
                     raise Exception("Test exception")
             except Exception:
                 pass
             
-            # Driver should still be quit even if exception occurs
+            # Драйвер должен быть закрыт даже при возникновении исключения
             mock_selenium_driver.quit.assert_called_once()
     
     @patch('os.path.exists')
     @patch('parser.fiscal_parser.Service')
     @patch('parser.fiscal_parser.webdriver.Chrome')
     def test_setup_driver_system_chromedriver(self, mock_chrome, mock_service, mock_exists):
-        """Test driver setup with system chromedriver."""
-        mock_exists.return_value = True  # System chromedriver exists
+        """Тест настройки драйвера с системным chromedriver."""
+        mock_exists.return_value = True  # Системный chromedriver существует
         mock_driver = Mock()
         mock_chrome.return_value = mock_driver
         
-        # Test the actual _setup_driver method
-        parser = FiscalParser.__new__(FiscalParser)  # Create without calling __init__
+        # Тестируем реальный метод _setup_driver
+        parser = FiscalParser.__new__(FiscalParser)  # Создаем без вызова __init__
         parser.headless = True
         driver = parser._setup_driver()
         
@@ -78,14 +78,14 @@ class TestFiscalParser:
     @patch('parser.fiscal_parser.ChromeDriverManager')
     @patch('parser.fiscal_parser.webdriver.Chrome')
     def test_setup_driver_webdriver_manager(self, mock_chrome, mock_manager, mock_exists):
-        """Test driver setup with WebDriverManager."""
-        mock_exists.return_value = False  # System chromedriver doesn't exist
+        """Тест настройки драйвера с WebDriverManager."""
+        mock_exists.return_value = False  # Системный chromedriver не существует
         mock_manager.return_value.install.return_value = '/path/to/chromedriver'
         mock_driver = Mock()
         mock_chrome.return_value = mock_driver
         
-        # Test the actual _setup_driver method
-        parser = FiscalParser.__new__(FiscalParser)  # Create without calling __init__
+        # Тестируем реальный метод _setup_driver
+        parser = FiscalParser.__new__(FiscalParser)  # Создаем без вызова __init__
         parser.headless = True
         driver = parser._setup_driver()
         
@@ -93,12 +93,12 @@ class TestFiscalParser:
         mock_manager.assert_called_once()
     
     def test_parse_serbian_number_valid(self):
-        """Test parsing valid Serbian numbers."""
+        """Тест парсинга валидных сербских чисел."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
             mock_setup.return_value = None
             parser = FiscalParser()
         
-        # Test various Serbian number formats
+        # Тестируем различные форматы сербских чисел
         assert parser._parse_serbian_number("1.839,96") == Decimal("1839.96")
         assert parser._parse_serbian_number("183,96") == Decimal("183.96")
         assert parser._parse_serbian_number("1.000,00") == Decimal("1000.00")
@@ -106,32 +106,32 @@ class TestFiscalParser:
         assert parser._parse_serbian_number("0,50") == Decimal("0.50")
     
     def test_parse_serbian_number_edge_cases(self):
-        """Test parsing Serbian numbers edge cases."""
+        """Тест парсинга граничных случаев сербских чисел."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
             mock_setup.return_value = None
             parser = FiscalParser()
         
-        # Empty and invalid inputs
+        # Пустые и невалидные входные данные
         assert parser._parse_serbian_number("") == Decimal("0")
         assert parser._parse_serbian_number("   ") == Decimal("0")
         assert parser._parse_serbian_number("-") == Decimal("0")
         assert parser._parse_serbian_number(".") == Decimal("0")
         assert parser._parse_serbian_number(",") == Decimal("0")
         
-        # Numbers with extra characters
+        # Числа с дополнительными символами
         assert parser._parse_serbian_number("1.839,96 RSD") == Decimal("1839.96")
         assert parser._parse_serbian_number("  183,96  ") == Decimal("183.96")
         assert parser._parse_serbian_number("€1.000,50") == Decimal("1000.50")
     
     def test_parse_serbian_number_invalid(self):
-        """Test parsing invalid Serbian numbers."""
+        """Тест парсинга невалидных сербских чисел."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
             mock_setup.return_value = None
             parser = FiscalParser()
         
-        # Invalid formats should return 0
+        # Невалидные форматы должны возвращать 0
         assert parser._parse_serbian_number("abc") == Decimal("0")
-        # Note: "1.2.3,45" actually parses as "123.45" - this is expected behavior
+        # Примечание: "1.2.3,45" фактически парсится как "123.45" - это ожидаемое поведение
         assert parser._parse_serbian_number("1.2.3,45") == Decimal("123.45")
         assert parser._parse_serbian_number("1,2,3.45") == Decimal("0")
     
@@ -139,8 +139,8 @@ class TestFiscalParser:
     @patch('parser.fiscal_parser.WebDriverWait')
     @patch('parser.fiscal_parser.FiscalParser._parse_html_content')
     def test_parse_url_success(self, mock_parse_html, mock_wait, mock_log_manager, mock_selenium_driver):
-        """Test successful URL parsing."""
-        # Setup mock HTML content
+        """Тест успешного парсинга URL."""
+        # Настраиваем мок HTML контента
         mock_html = """
         <html>
             <body>
@@ -163,7 +163,7 @@ class TestFiscalParser:
         </html>
         """
         
-        # Create mock SerbianFiscalData
+        # Создаем мок SerbianFiscalData
         from models.fiscal_models import SerbianFiscalData
         mock_result = SerbianFiscalData(
             tin="123456789",
@@ -190,11 +190,11 @@ class TestFiscalParser:
         mock_log_manager.return_value.get_writable_file_path.return_value = "/tmp/debug.html"
         mock_parse_html.return_value = mock_result
         
-        # Mock all the WebDriver methods that might be called
+        # Мокаем все методы WebDriver, которые могут быть вызваны
         mock_selenium_driver.get.return_value = None
         mock_selenium_driver.service.is_connectable.return_value = True
         
-        # Mock WebDriverWait to avoid timeout
+        # Мокаем WebDriverWait чтобы избежать таймаута
         mock_wait.return_value.until.return_value = True
         
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
@@ -211,7 +211,7 @@ class TestFiscalParser:
         assert result.total_amount == Decimal("183.96")
     
     def test_parse_url_driver_exception(self, mock_selenium_driver):
-        """Test URL parsing with driver exception."""
+        """Тест парсинга URL с исключением драйвера."""
         mock_selenium_driver.get.side_effect = WebDriverException("Connection failed")
         
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
@@ -220,13 +220,13 @@ class TestFiscalParser:
             with FiscalParser() as parser:
                 result = parser.parse_url("https://test.com")
         
-        # Parser returns empty SerbianFiscalData on error, not None
+        # Парсер возвращает пустой SerbianFiscalData при ошибке, не None
         assert result is not None
         assert result.tin == ""
         assert result.shop_name == ""
     
     def test_parse_url_timeout(self, mock_selenium_driver):
-        """Test URL parsing with timeout."""
+        """Тест парсинга URL с таймаутом."""
         mock_selenium_driver.get.side_effect = TimeoutException("Page load timeout")
         
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
@@ -235,13 +235,13 @@ class TestFiscalParser:
             with FiscalParser() as parser:
                 result = parser.parse_url("https://test.com")
         
-        # Parser returns empty SerbianFiscalData on error, not None
+        # Парсер возвращает пустой SerbianFiscalData при ошибке, не None
         assert result is not None
         assert result.tin == ""
         assert result.shop_name == ""
     
     def test_extract_knockout_data_success(self):
-        """Test successful Knockout.js data extraction."""
+        """Тест успешного извлечения данных Knockout.js."""
         html = """
         <div data-bind="text: companyTaxNumber">123456789</div>
         <div data-bind="text: businessUnitName">Test Shop</div>
@@ -260,7 +260,7 @@ class TestFiscalParser:
         assert data['totalAmount'] == '183,96'
     
     def test_extract_knockout_data_no_elements(self):
-        """Test Knockout.js data extraction with no elements."""
+        """Тест извлечения данных Knockout.js без элементов."""
         html = "<div>No knockout elements</div>"
         
         soup = BeautifulSoup(html, 'html.parser')
@@ -273,7 +273,7 @@ class TestFiscalParser:
         assert data == {}
     
     def test_extract_knockout_items_success(self):
-        """Test successful Knockout.js items extraction."""
+        """Тест успешного извлечения товаров Knockout.js."""
         html = """
         <div data-bind="foreach: items">
             <div>
@@ -306,7 +306,7 @@ class TestFiscalParser:
         assert items[1]['name'] == 'Item 2'
     
     def test_extract_knockout_items_empty(self):
-        """Test Knockout.js items extraction with no items."""
+        """Тест извлечения товаров Knockout.js без товаров."""
         html = "<div>No items</div>"
         
         soup = BeautifulSoup(html, 'html.parser')
@@ -321,12 +321,12 @@ class TestFiscalParser:
         assert items == []
     
     def test_parse_datetime_valid_formats(self):
-        """Test parsing various datetime formats."""
+        """Тест парсинга различных форматов даты и времени."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
             mock_setup.return_value = None
             parser = FiscalParser()
         
-        # Test different Serbian datetime formats
+        # Тестируем различные сербские форматы даты и времени
         dt1 = parser._parse_datetime("27.09.2025. 10:30:00")
         assert dt1.year == 2025
         assert dt1.month == 9
@@ -340,25 +340,25 @@ class TestFiscalParser:
         assert dt2.day == 1
     
     def test_parse_datetime_invalid_formats(self):
-        """Test parsing invalid datetime formats."""
+        """Тест парсинга невалидных форматов даты и времени."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
             mock_setup.return_value = None
             parser = FiscalParser()
         
-        # Should return None for invalid formats
+        # Должен возвращать None для невалидных форматов
         assert parser._parse_datetime("invalid date") is None
         assert parser._parse_datetime("") is None
         assert parser._parse_datetime("32.13.2025. 25:61:61") is None
     
     def test_extract_city_from_address(self):
-        """Test city extraction from address."""
+        """Тест извлечения города из адреса."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
 
             mock_setup.return_value = None
 
             parser = FiscalParser()
         
-        # Test various address formats
+        # Тестируем различные форматы адресов
         assert parser._extract_city_from_address("Street 123, Belgrade") == "Belgrade"
         assert parser._extract_city_from_address("Address, NOVI SAD") == "NOVI SAD"
         assert parser._extract_city_from_address("Complex Address, Belgrade (District)") == "Belgrade"
@@ -367,15 +367,15 @@ class TestFiscalParser:
 
 
 class TestParseSerbianFiscalUrl:
-    """Tests for the main parsing function."""
+    """Тесты для основной функции парсинга."""
     
     @patch('parser.fiscal_parser.FiscalParser')
     def test_parse_serbian_fiscal_url_success(self, mock_parser_class, sample_serbian_data):
-        """Test successful parsing of Serbian fiscal URL."""
+        """Тест успешного парсинга сербского фискального URL."""
         mock_parser = Mock()
         mock_parser_class.return_value.__enter__.return_value = mock_parser
         
-        # Create a mock SerbianFiscalData object
+        # Создаем мок объект SerbianFiscalData
         from models.fiscal_models import SerbianFiscalData
         mock_serbian_data = SerbianFiscalData(**sample_serbian_data)
         mock_parser.parse_url.return_value = mock_serbian_data
@@ -390,63 +390,63 @@ class TestParseSerbianFiscalUrl:
     
     @patch('parser.fiscal_parser.FiscalParser')
     def test_parse_serbian_fiscal_url_parser_failure(self, mock_parser_class):
-        """Test parsing with parser failure."""
+        """Тест парсинга с ошибкой парсера."""
         mock_parser = Mock()
         mock_parser_class.return_value.__enter__.return_value = mock_parser
         mock_parser.parse_url.return_value = None
         
-        # Test that exception is raised when parser returns None
+        # Тестируем, что исключение вызывается когда парсер возвращает None
         with pytest.raises(AttributeError):
             result = parse_serbian_fiscal_url("https://test.com")
     
     @patch('parser.fiscal_parser.FiscalParser')
     def test_parse_serbian_fiscal_url_conversion_error(self, mock_parser_class, sample_serbian_data):
-        """Test parsing with conversion error."""
+        """Тест парсинга с ошибкой конвертации."""
         mock_parser = Mock()
         mock_parser_class.return_value.__enter__.return_value = mock_parser
         
-        # Create invalid Serbian data that will fail conversion
+        # Создаем невалидные сербские данные, которые не пройдут конвертацию
         invalid_data = sample_serbian_data.copy()
         invalid_data['total_amount'] = "invalid_amount"
         
         from models.fiscal_models import SerbianFiscalData
-        mock_serbian_data = SerbianFiscalData(**sample_serbian_data)  # Use valid data
+        mock_serbian_data = SerbianFiscalData(**sample_serbian_data)  # Используем валидные данные
         mock_parser.parse_url.return_value = mock_serbian_data
         
-        # Mock the converter to raise an exception
+        # Мокаем конвертер чтобы вызвать исключение
         with patch('parser.fiscal_parser.SerbianToRussianConverter') as mock_converter_class:
             mock_converter = Mock()
             mock_converter_class.return_value = mock_converter
             mock_converter.convert.side_effect = Exception("Conversion failed")
             
-            # Test that exception is raised during conversion
+            # Тестируем, что исключение вызывается во время конвертации
             with pytest.raises(Exception, match="Conversion failed"):
                 result = parse_serbian_fiscal_url("https://test.com")
 
 
 class TestParserErrorHandling:
-    """Tests for parser error handling."""
+    """Тесты для обработки ошибок парсера."""
     
     def test_driver_initialization_failure(self):
-        """Test handling driver initialization failure."""
+        """Тест обработки ошибки инициализации драйвера."""
         with patch('parser.fiscal_parser.webdriver.Chrome') as mock_chrome:
             mock_chrome.side_effect = Exception("Driver init failed")
             
-            # Test that exception is raised during initialization
+            # Тестируем, что исключение вызывается во время инициализации
             with pytest.raises(Exception, match="Driver init failed"):
                 parser = FiscalParser()
     
     def test_selenium_service_failure(self):
-        """Test handling Selenium service failure."""
+        """Тест обработки ошибки сервиса Selenium."""
         with patch('parser.fiscal_parser.Service') as mock_service:
             mock_service.side_effect = Exception("Service failed")
             
-            # Test that exception is raised during initialization
+            # Тестируем, что исключение вызывается во время инициализации
             with pytest.raises(Exception, match="Service failed"):
                 parser = FiscalParser()
     
     def test_page_source_empty(self, mock_selenium_driver):
-        """Test handling empty page source."""
+        """Тест обработки пустого исходного кода страницы."""
         mock_selenium_driver.page_source = ""
         
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
@@ -455,13 +455,13 @@ class TestParserErrorHandling:
             with FiscalParser() as parser:
                 result = parser.parse_url("https://test.com")
         
-        # Parser returns empty SerbianFiscalData on error, not None
+        # Парсер возвращает пустой SerbianFiscalData при ошибке, не None
         assert result is not None
         assert result.tin == ""
         assert result.shop_name == ""
     
     def test_malformed_html(self, mock_selenium_driver):
-        """Test handling malformed HTML."""
+        """Тест обработки некорректного HTML."""
         mock_selenium_driver.page_source = "<html><body><div incomplete"
         
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
@@ -470,18 +470,18 @@ class TestParserErrorHandling:
             with FiscalParser() as parser:
                 result = parser.parse_url("https://test.com")
         
-        # Parser should handle malformed HTML gracefully
+        # Парсер должен корректно обрабатывать некорректный HTML
         assert result is not None
         assert result.tin == ""
         assert result.shop_name == ""
 
 
 class TestParserPerformance:
-    """Tests for parser performance and optimization."""
+    """Тесты для производительности и оптимизации парсера."""
     
     def test_large_html_handling(self, mock_selenium_driver):
-        """Test handling of large HTML documents."""
-        # Create a large HTML document
+        """Тест обработки больших HTML документов."""
+        # Создаем большой HTML документ
         large_html = "<html><body>" + "<div>content</div>" * 10000 + "</body></html>"
         mock_selenium_driver.page_source = large_html
         
@@ -489,40 +489,40 @@ class TestParserPerformance:
             mock_setup.return_value = mock_selenium_driver
             
             with FiscalParser() as parser:
-                # Should not hang or crash
+                # Не должен зависать или падать
                 result = parser.parse_url("https://test.com")
         
-        # Should complete without error
+        # Должен завершиться без ошибки
         assert result is not None or result is None
     
     def test_multiple_parsing_sessions(self):
-        """Test multiple parsing sessions."""
+        """Тест множественных сессий парсинга."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
             mock_driver = Mock()
             mock_setup.return_value = mock_driver
             
-            # Multiple parser instances should work
+            # Множественные экземпляры парсера должны работать
             for i in range(3):
                 with FiscalParser() as parser:
-                    # Set the driver manually for the test
+                    # Устанавливаем драйвер вручную для теста
                     parser.driver = mock_driver
                     assert parser.driver == mock_driver
                 
-                # Each driver should be quit after use
+                # Каждый драйвер должен быть закрыт после использования
                 assert mock_driver.quit.call_count == i + 1
 
 
 class TestParserDataValidation:
-    """Tests for data validation in parser."""
+    """Тесты для валидации данных в парсере."""
     
     def test_required_fields_missing(self, mock_selenium_driver):
-        """Test handling missing required fields."""
-        # HTML with only partial data
+        """Тест обработки отсутствующих обязательных полей."""
+        # HTML только с частичными данными
         incomplete_html = """
         <html>
             <body>
                 <div data-bind="text: companyTaxNumber">123456789</div>
-                <!-- Missing other required fields -->
+                <!-- Отсутствуют другие обязательные поля -->
             </body>
         </html>
         """
@@ -535,32 +535,32 @@ class TestParserDataValidation:
             with FiscalParser() as parser:
                 result = parser.parse_url("https://test.com")
         
-        # Should handle missing fields gracefully
+        # Должен корректно обрабатывать отсутствующие поля
         assert result is None or hasattr(result, 'tin')
     
     def test_numeric_field_validation(self):
-        """Test validation of numeric fields."""
+        """Тест валидации числовых полей."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
 
             mock_setup.return_value = None
 
             parser = FiscalParser()
         
-        # Test that invalid numeric values are handled
+        # Тестируем, что невалидные числовые значения обрабатываются
         assert parser._parse_serbian_number("not_a_number") == Decimal("0")
-        # Note: "1.2.3.4,56" actually parses as "1234.56" - this is expected behavior
+        # Примечание: "1.2.3.4,56" фактически парсится как "1234.56" - это ожидаемое поведение
         assert parser._parse_serbian_number("1.2.3.4,56") == Decimal("1234.56")
         assert parser._parse_serbian_number("") == Decimal("0")
     
     def test_date_field_validation(self):
-        """Test validation of date fields."""
+        """Тест валидации полей даты."""
         with patch('parser.fiscal_parser.FiscalParser._setup_driver') as mock_setup:
 
             mock_setup.return_value = None
 
             parser = FiscalParser()
         
-        # Test that invalid dates are handled
+        # Тестируем, что невалидные даты обрабатываются
         assert parser._parse_datetime("not_a_date") is None
         assert parser._parse_datetime("32.13.2025. 25:61:61") is None
         assert parser._parse_datetime("") is None

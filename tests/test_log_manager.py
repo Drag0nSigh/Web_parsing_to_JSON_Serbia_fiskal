@@ -1,5 +1,5 @@
 """
-Tests for log manager in utils/log_manager.py - FIXED VERSION
+Тесты для менеджера логов в utils/log_manager.py - ИСПРАВЛЕННАЯ ВЕРСИЯ
 """
 import pytest
 import tempfile
@@ -13,10 +13,10 @@ from utils.log_manager import LogManager, get_log_manager
 
 
 class TestLogManager:
-    """Tests for LogManager class."""
+    """Тесты для класса LogManager."""
     
     def test_log_manager_initialization(self, temp_log_dir):
-        """Test LogManager initialization."""
+        """Тест инициализации LogManager."""
         with patch.dict('os.environ', {'LOG_RETENTION_DAYS': '15'}):
             log_manager = LogManager(log_dir=temp_log_dir, retention_days=15)
 
@@ -24,13 +24,13 @@ class TestLogManager:
             assert log_manager.retention_days == 15
     
     def test_log_manager_default_retention(self, temp_log_dir):
-        """Test LogManager with default retention days."""
+        """Тест LogManager с настройками удержания по умолчанию."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        assert log_manager.retention_days == 30  # Default value
+        assert log_manager.retention_days == 30  # Значение по умолчанию
     
     def test_get_daily_log_file(self, temp_log_dir):
-        """Test getting daily log file path."""
+        """Тест получения пути к ежедневному файлу логов."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
         log_file = log_manager.get_daily_log_file("test")
@@ -42,7 +42,7 @@ class TestLogManager:
         assert log_file.parent == temp_log_dir
     
     def test_get_daily_log_file_different_types(self, temp_log_dir):
-        """Test getting daily log files for different types."""
+        """Тест получения ежедневных файлов логов для разных типов."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
         bot_file = log_manager.get_daily_log_file("bot")
@@ -53,7 +53,7 @@ class TestLogManager:
         assert bot_file != parser_file
     
     def test_can_write_to_log_dir_success(self, temp_log_dir):
-        """Test write permission check success."""
+        """Тест успешной проверки прав на запись."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
         result = log_manager.can_write_to_log_dir()
@@ -61,17 +61,17 @@ class TestLogManager:
         assert result is True
     
     def test_can_write_to_log_dir_failure(self, temp_log_dir):
-        """Test write permission check failure."""
+        """Тест неудачной проверки прав на запись."""
         log_manager = LogManager(log_dir=temp_log_dir)
 
-        # Mock permission error by patching the file operations
+        # Мокаем ошибку прав доступа, патча операции с файлами
         with patch.object(Path, 'touch', side_effect=PermissionError("Access denied")):
             result = log_manager.can_write_to_log_dir()
             assert result is False
     
     def test_can_write_to_log_dir_nonexistent(self):
-        """Test write permission check with non-existent directory."""
-        # Use a temporary directory that we can control
+        """Тест проверки прав на запись с несуществующей директорией."""
+        # Используем временную директорию, которую можем контролировать
         with tempfile.TemporaryDirectory() as temp_base:
             non_existent_dir = Path(temp_base) / "non" / "existent" / "directory"
             
@@ -79,7 +79,7 @@ class TestLogManager:
                 LogManager(log_dir=non_existent_dir)
     
     def test_get_writable_file_path_success(self, temp_log_dir):
-        """Test getting writable file path success."""
+        """Тест успешного получения пути к записываемому файлу."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
         file_path = log_manager.get_writable_file_path("test.log")
@@ -88,17 +88,17 @@ class TestLogManager:
         assert file_path.parent == temp_log_dir
     
     def test_get_writable_file_path_failure(self, temp_log_dir):
-        """Test getting writable file path failure."""
+        """Тест неудачного получения пути к записываемому файлу."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Mock permission error by patching the can_write_to_log_dir method
+        # Мокаем ошибку прав доступа, патча метод can_write_to_log_dir
         with patch.object(log_manager, 'can_write_to_log_dir', return_value=False):
             file_path = log_manager.get_writable_file_path("test.log")
             
             assert file_path is None
     
     def test_setup_logging_with_file(self, temp_log_dir):
-        """Test setting up logging with file handler."""
+        """Тест настройки логирования с обработчиком файлов."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
         logger = log_manager.setup_logging("test", logging.INFO)
@@ -107,48 +107,48 @@ class TestLogManager:
         assert logger.name == "test"
         assert logger.level == logging.INFO
         
-        # Check that handlers were added
+        # Проверяем, что обработчики были добавлены
         assert len(logger.handlers) > 0
     
     def test_setup_logging_without_file_access(self, temp_log_dir):
-        """Test setting up logging without file access."""
+        """Тест настройки логирования без доступа к файлам."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Mock file writing failure
+        # Мокаем неудачную запись в файл
         with patch.object(log_manager, 'can_write_to_log_dir', return_value=False):
             logger = log_manager.setup_logging("test", logging.INFO)
             
             assert logger is not None
-            # Should still have console handler
+            # Должен все еще иметь консольный обработчик
             assert len(logger.handlers) > 0
     
     def test_setup_logging_file_handler_error(self, temp_log_dir):
-        """Test setting up logging with file handler error."""
+        """Тест настройки логирования с ошибкой обработчика файлов."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Mock FileHandler creation failure
+        # Мокаем неудачное создание FileHandler
         with patch('logging.FileHandler', side_effect=Exception("Handler error")):
             logger = log_manager.setup_logging("test", logging.INFO)
             
-            # Should fallback to console-only logging
+            # Должен переключиться на логирование только в консоль
             assert logger is not None
     
     def test_cleanup_old_logs(self, temp_log_dir):
-        """Test cleanup of old log files."""
+        """Тест очистки старых файлов логов."""
         # Создаем LogManager без автоочистки в инициализации
         log_manager = LogManager.__new__(LogManager)
         log_manager.log_dir = temp_log_dir
         log_manager.retention_days = 7
         log_manager.log_dir.mkdir(exist_ok=True)
         
-        # Create test log files
+        # Создаем тестовые файлы логов
         old_file = temp_log_dir / "bot_old.log"
         recent_file = temp_log_dir / "bot_recent.log"
         
         old_file.write_text("old log content")
         recent_file.write_text("recent log content")
         
-        # Mock os.path.getctime to return different ages for files
+        # Мокаем os.path.getctime для возврата разных возрастов файлов
         def mock_getctime(path):
             today = datetime.now()
             if "old" in str(path):
@@ -158,10 +158,10 @@ class TestLogManager:
         
         with patch('os.path.getctime', side_effect=mock_getctime):
             with patch('os.remove') as mock_remove:
-                # Run cleanup
+                # Запускаем очистку
                 deleted_count = log_manager.cleanup_old_logs()
                 
-                # Old file should be deleted (mock will be called)
+                # Старый файл должен быть удален (мок будет вызван)
                 assert deleted_count == 1
                 mock_remove.assert_called_once()
                 # Проверяем, что была попытка удалить правильный файл
@@ -169,33 +169,33 @@ class TestLogManager:
                 assert "bot_old.log" in called_path
     
     def test_cleanup_old_logs_no_files(self, temp_log_dir):
-        """Test cleanup with no log files."""
+        """Тест очистки без файлов логов."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Should not raise error
+        # Не должно вызывать ошибку
         log_manager.cleanup_old_logs()
         
-        # Directory should still exist
+        # Директория должна все еще существовать
         assert temp_log_dir.exists()
     
     def test_cleanup_old_logs_permission_error(self, temp_log_dir):
-        """Test cleanup with permission error."""
+        """Тест очистки с ошибкой прав доступа."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Create a test file
+        # Создаем тестовый файл
         test_file = temp_log_dir / "test_2025-01-01.log"
         test_file.write_text("test content")
         
-        # Mock permission error on unlink
+        # Мокаем ошибку прав доступа при unlink
         with patch.object(Path, 'unlink', side_effect=PermissionError("Access denied")):
-            # Should not raise error
+            # Не должно вызывать ошибку
             log_manager.cleanup_old_logs()
     
     def test_get_log_stats(self, temp_log_dir):
-        """Test getting log statistics."""
+        """Тест получения статистики логов."""
         log_manager = LogManager(log_dir=temp_log_dir)
 
-        # Create test log files
+        # Создаем тестовые файлы логов
         (temp_log_dir / "bot_2025-09-27.log").write_text("bot log content")
         (temp_log_dir / "parser_2025-09-27.log").write_text("parser log content" * 100)
         (temp_log_dir / "database_2025-09-26.log").write_text("db log")
@@ -208,7 +208,7 @@ class TestLogManager:
         assert 'by_type' in stats
     
     def test_get_log_stats_empty_directory(self, temp_log_dir):
-        """Test getting log statistics with empty directory."""
+        """Тест получения статистики логов с пустой директорией."""
         log_manager = LogManager(log_dir=temp_log_dir)
 
         stats = log_manager.get_log_stats()
@@ -218,41 +218,41 @@ class TestLogManager:
         assert stats.get('by_type', {}) == {}
     
     def test_get_log_stats_permission_error(self, temp_log_dir):
-        """Test getting log statistics with permission error."""
+        """Тест получения статистики логов с ошибкой прав доступа."""
         log_manager = LogManager(log_dir=temp_log_dir)
 
-        # Mock glob to raise permission error
+        # Мокаем glob для вызова ошибки прав доступа
         with patch.object(Path, 'glob', side_effect=PermissionError("Access denied")):
             stats = log_manager.get_log_stats()
 
-            # Should return safe defaults
+            # Должен возвращать безопасные значения по умолчанию
             assert stats['total_files'] == 0
             assert stats['total_size'] == 0
             assert stats.get('by_type', {}) == {}
 
 
 class TestLogManagerDynamicPath:
-    """Tests for LogManager with dynamic path detection."""
+    """Тесты для LogManager с динамическим определением пути."""
     
     def test_docker_environment_detection(self):
-        """Test Docker environment detection via environment variable."""
+        """Тест определения Docker окружения через переменную окружения."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_manager = LogManager(log_dir=Path(temp_dir))
             assert log_manager.log_dir == Path(temp_dir)
     
     def test_local_environment_detection(self):
-        """Test local environment detection."""
+        """Тест определения локального окружения."""
         with tempfile.TemporaryDirectory() as temp_dir:
             log_manager = LogManager(log_dir=Path(temp_dir))
             assert log_manager.log_dir == Path(temp_dir)
 
 
 class TestGetLogManager:
-    """Tests for get_log_manager function."""
+    """Тесты для функции get_log_manager."""
     
     def test_get_log_manager_creates_instance(self):
-        """Test that get_log_manager creates LogManager instance."""
-        # Clear any existing instance
+        """Тест того, что get_log_manager создает экземпляр LogManager."""
+        # Очищаем любой существующий экземпляр
         if hasattr(get_log_manager, '_instance'):
             delattr(get_log_manager, '_instance')
 
@@ -263,39 +263,39 @@ class TestGetLogManager:
         assert hasattr(manager, 'retention_days')
     
     def test_get_log_manager_singleton_behavior(self):
-        """Test that get_log_manager behaves like a singleton."""
-        # Clear any existing instance
+        """Тест того, что get_log_manager ведет себя как синглтон."""
+        # Очищаем любой существующий экземпляр
         if hasattr(get_log_manager, '_instance'):
             delattr(get_log_manager, '_instance')
 
         manager1 = get_log_manager()
         manager2 = get_log_manager()
 
-        # Should return same instance on subsequent calls
+        # Должен возвращать тот же экземпляр при последующих вызовах
         assert manager1.log_dir == manager2.log_dir
         assert manager1.retention_days == manager2.retention_days
 
 
 class TestLogManagerIntegration:
-    """Integration tests for LogManager."""
+    """Интеграционные тесты для LogManager."""
     
     def test_full_logging_workflow(self, temp_log_dir):
-        """Test complete logging workflow."""
+        """Тест полного рабочего процесса логирования."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Setup logger
+        # Настраиваем логгер
         logger = log_manager.setup_logging("integration_test", logging.INFO)
         
-        # Log some messages
+        # Логируем несколько сообщений
         logger.info("Test info message")
         logger.warning("Test warning message")
         logger.error("Test error message")
         
-        # Check that log file was created
+        # Проверяем, что файл лога был создан
         today = datetime.now().strftime("%Y-%m-%d")
         log_file = temp_log_dir / f"integration_test_{today}.log"
         
-        # File should exist if writing is successful
+        # Файл должен существовать, если запись прошла успешно
         if log_file.exists():
             content = log_file.read_text()
             assert "Test info message" in content
@@ -303,7 +303,7 @@ class TestLogManagerIntegration:
             assert "Test error message" in content
     
     def test_logger_configuration_isolation(self, temp_log_dir):
-        """Test that different loggers are properly isolated."""
+        """Тест того, что разные логгеры правильно изолированы."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
         logger1 = log_manager.setup_logging("test1", logging.INFO)
@@ -314,10 +314,10 @@ class TestLogManagerIntegration:
         assert logger2.level == logging.DEBUG
     
     def test_log_rotation_behavior(self, temp_log_dir):
-        """Test log rotation behavior across days."""
+        """Тест поведения ротации логов между днями."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Create logs for different days
+        # Создаем логи для разных дней
         yesterday = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
         today = datetime.now().strftime("%Y-%m-%d")
         
@@ -327,145 +327,145 @@ class TestLogManagerIntegration:
         yesterday_file.write_text("Yesterday's logs")
         today_file.write_text("Today's logs")
         
-        # Both files should be treated as separate
+        # Оба файла должны рассматриваться как отдельные
         assert yesterday_file.exists()
         assert today_file.exists()
         assert yesterday_file.read_text() != today_file.read_text()
     
     def test_concurrent_logging_access(self, temp_log_dir):
-        """Test concurrent access to logging."""
+        """Тест параллельного доступа к логированию."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Setup multiple loggers
+        # Настраиваем несколько логгеров
         loggers = []
         for i in range(3):
             logger = log_manager.setup_logging(f"concurrent", logging.INFO)
             loggers.append(logger)
         
-        # Log from multiple loggers (simulating concurrent access)
+        # Логируем из нескольких логгеров (симулируя параллельный доступ)
         for i, logger in enumerate(loggers):
             logger.info(f"Message from logger {i}")
         
-        # Should handle concurrent access gracefully
+        # Должен обрабатывать параллельный доступ корректно
         assert len(loggers) == 3
 
 
 class TestLogManagerErrorHandling:
-    """Tests for error handling in LogManager."""
+    """Тесты для обработки ошибок в LogManager."""
     
     def test_invalid_log_retention_days(self, temp_log_dir):
-        """Test handling invalid log retention days."""
-        # Test with string that can't be converted to int
+        """Тест обработки недопустимых дней удержания логов."""
+        # Тестируем со строкой, которую нельзя преобразовать в int
         log_manager = LogManager(log_dir=temp_log_dir, retention_days=30)
         
-        # Should use provided value
+        # Должен использовать предоставленное значение
         assert log_manager.retention_days == 30
     
     def test_negative_log_retention_days(self, temp_log_dir):
-        """Test handling negative log retention days."""
+        """Тест обработки отрицательных дней удержания логов."""
         log_manager = LogManager(log_dir=temp_log_dir, retention_days=-5)
         
-        # Should accept negative value (though it might not make practical sense)
+        # Должен принимать отрицательное значение (хотя это может не иметь практического смысла)
         assert log_manager.retention_days == -5
     
     def test_log_directory_creation_failure(self):
-        """Test handling log directory creation failure."""
+        """Тест обработки неудачного создания директории логов."""
         with patch('pathlib.Path.mkdir', side_effect=PermissionError("Cannot create directory")):
-            # Should raise exception during initialization
+            # Должен вызывать исключение во время инициализации
             with pytest.raises(PermissionError):
                 LogManager(log_dir=Path("/root/cannot_create"))
     
     def test_corrupted_log_file_handling(self, temp_log_dir):
-        """Test handling corrupted log files."""
+        """Тест обработки поврежденных файлов логов."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Create a "corrupted" file (empty file with weird name)
+        # Создаем "поврежденный" файл (пустой файл со странным именем)
         corrupted_file = temp_log_dir / "corrupted_log_file"
         corrupted_file.write_text("")
         
-        # Should handle gracefully during stats collection
+        # Должен обрабатывать корректно во время сбора статистики
         stats = log_manager.get_log_stats()
         assert stats is not None
         assert isinstance(stats, dict)
     
     def test_extremely_large_log_retention(self, temp_log_dir):
-        """Test handling extremely large log retention values."""
+        """Тест обработки чрезвычайно больших значений удержания логов."""
         # Создаем LogManager с очень большим значением
         log_manager = LogManager.__new__(LogManager)
         log_manager.log_dir = temp_log_dir
         log_manager.retention_days = 999999
         log_manager.log_dir.mkdir(exist_ok=True)
         
-        # Should handle large values without error
+        # Должен обрабатывать большие значения без ошибки
         assert log_manager.retention_days == 999999
         
-        # Cleanup should still work (though it won't delete anything) and not raise OverflowError
+        # Очистка должна все еще работать (хотя ничего не удалит) и не вызывать OverflowError
         deleted_count = log_manager.cleanup_old_logs()
-        assert deleted_count == 0  # Should not delete anything with such large retention
+        assert deleted_count == 0  # Не должно ничего удалять с таким большим удержанием
 
 
 class TestLogManagerEnvironmentIntegration:
-    """Tests for LogManager integration with environment variables."""
+    """Тесты для интеграции LogManager с переменными окружения."""
     
     @patch.dict('os.environ', {'LOG_RETENTION_DAYS': '15'})
     def test_retention_from_environment_variable(self, temp_log_dir):
-        """Test reading retention days from environment variable."""
-        # This test should be in the get_log_manager function itself
-        # Here we just test that LogManager respects passed values
+        """Тест чтения дней удержания из переменной окружения."""
+        # Этот тест должен быть в самой функции get_log_manager
+        # Здесь мы просто тестируем, что LogManager учитывает переданные значения
         log_manager = LogManager(log_dir=temp_log_dir, retention_days=15)
         assert log_manager.retention_days == 15
     
     @patch.dict('os.environ', {'LOG_RETENTION_DAYS': 'invalid'})
     def test_invalid_environment_variable(self, temp_log_dir):
-        """Test handling invalid environment variable."""
-        # LogManager should still work with explicit parameter
+        """Тест обработки недопустимой переменной окружения."""
+        # LogManager должен все еще работать с явным параметром
         log_manager = LogManager(log_dir=temp_log_dir, retention_days=30)
         assert log_manager.retention_days == 30
     
     def test_missing_environment_variable(self, temp_log_dir):
-        """Test behavior when environment variable is missing."""
-        # Clear environment variable
+        """Тест поведения при отсутствии переменной окружения."""
+        # Очищаем переменную окружения
         with patch.dict('os.environ', {}, clear=True):
-            # LogManager should work with explicit parameter
+            # LogManager должен работать с явным параметром
             log_manager = LogManager(log_dir=temp_log_dir, retention_days=30)
             assert log_manager.retention_days == 30
 
 
 class TestLogManagerFileOperations:
-    """Tests for file operations in LogManager."""
+    """Тесты для файловых операций в LogManager."""
     
     def test_log_file_creation_and_writing(self, temp_log_dir):
-        """Test log file creation and writing."""
+        """Тест создания и записи файла логов."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Get log file path
+        # Получаем путь к файлу логов
         log_file = log_manager.get_daily_log_file("file_ops_test")
         
-        # File shouldn't exist initially
+        # Файл не должен существовать изначально
         assert not log_file.exists()
         
-        # Setup logging should create the file when first log is written
+        # Настройка логирования должна создать файл при первой записи лога
         logger = log_manager.setup_logging("file_ops_test", logging.INFO)
         logger.info("Test message")
         
-        # File might exist now (depends on buffering)
-        # We don't assert existence here since it depends on implementation details
+        # Файл может существовать сейчас (зависит от буферизации)
+        # Мы не проверяем существование здесь, так как это зависит от деталей реализации
     
     def test_multiple_log_types_same_day(self, temp_log_dir):
-        """Test multiple log types on the same day."""
+        """Тест нескольких типов логов в один день."""
         log_manager = LogManager(log_dir=temp_log_dir)
         
-        # Get different log file types
+        # Получаем разные типы файлов логов
         bot_file = log_manager.get_daily_log_file("bot")
         parser_file = log_manager.get_daily_log_file("parser")
         db_file = log_manager.get_daily_log_file("database")
         
-        # All should be different files
+        # Все должны быть разными файлами
         assert bot_file != parser_file
         assert parser_file != db_file
         assert bot_file != db_file
         
-        # All should be in the same directory
+        # Все должны быть в одной директории
         assert bot_file.parent == temp_log_dir
         assert parser_file.parent == temp_log_dir
         assert db_file.parent == temp_log_dir

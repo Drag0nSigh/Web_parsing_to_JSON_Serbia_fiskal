@@ -40,7 +40,7 @@
 5. Сборка новых образов (docker-compose build)
 6. Запуск сервисов (docker-compose up -d)
 7. Очистка старых образов
-8. Проверка здоровья сервиса (опционально)
+8. Проверка статуса сервисов
 
 ### Настройка деплоя:
 
@@ -48,18 +48,18 @@
 
 ```bash
 # Обязательные
-DEPLOY_HOST=192.168.1.100         # IP адрес вашего сервера
-DEPLOY_USER=deploy                # Пользователь для SSH
-DEPLOY_SSH_KEY=-----BEGIN...      # Приватный SSH ключ
+DEPLOY_HOST=192.168.1.100              # IP адрес вашего сервера
+DEPLOY_USER=fiskal_serbia_deploy       # Пользователь для SSH
+DEPLOY_SSH_KEY=-----BEGIN...           # Приватный SSH ключ
 
-# Опциональные
-HEALTH_CHECK_URL=http://192.168.1.100:8080/health
 ```
 
 **Требования на сервере:**
-- Git репозиторий в `/opt/fiscal-parser`
+- Пользователь `fiskal_serbia_deploy` создан и настроен
+- Git репозиторий в `/opt/fiscal-parser` с правами для `fiskal_serbia_deploy`
 - Docker и docker-compose установлены
-- SSH доступ для пользователя `DEPLOY_USER`
+- Пользователь `fiskal_serbia_deploy` добавлен в группу `docker`
+- SSH ключи настроены для беспарольного доступа
 - Файл `docker-compose.yml` в корне проекта
 
 ### Результат:

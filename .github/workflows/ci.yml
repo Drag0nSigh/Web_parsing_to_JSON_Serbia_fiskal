@@ -140,46 +140,45 @@ jobs:
         echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-      if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_SSH_KEY }}
+      if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_SSH_KEY && secrets.DEPLOY_USER }}
       
     - name: Deploy via SSH
       run: |
         ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
-          cd /opt/fiscal-parser || exit 1
+          set -e  # Остановить выполнение при ошибке
           
-          echo "🔄 Updating code..."
-          git pull origin main
+          echo "👤 Current user: $(whoami)"
+          echo "📁 Changing to project directory..."
+          cd /opt/fiscal-parser || { echo "❌ Failed to change to /opt/fiscal-parser"; exit 1; }
           
-          echo "🛑 Stopping services..."
-          docker-compose down
+          echo "🔄 Updating code from git..."
+          git fetch origin
+          git reset --hard origin/main
+          git clean -fd
+          
+          echo "🛑 Stopping existing services..."
+          docker-compose down --remove-orphans || true
           
           echo "📦 Building new images..."
-          docker-compose build --no-cache
+          docker-compose build --no-cache --pull
           
           echo "🚀 Starting services..."
           docker-compose up -d
           
-          echo "🧹 Cleaning up..."
-          docker system prune -f
+          echo "⏳ Waiting for services to start..."
+          sleep 10
+          
+          echo "📊 Checking service status..."
+          docker-compose ps
+          
+          echo "🧹 Cleaning up old Docker resources..."
+          docker system prune -f --volumes || true
           
           echo "✅ Deployment completed successfully!"
+          echo "🎯 Services running:"
+          docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
         EOF
-      if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_SSH_KEY }}
-      
-    - name: Health Check
-      run: |
-        echo "⏳ Waiting for service to start..."
-        sleep 30
-        
-        # Проверяем доступность сервиса
-        if curl -f -s --max-time 30 http://${{ secrets.DEPLOY_HOST }}:8080/health > /dev/null 2>&1; then
-          echo "✅ Service is healthy!"
-        else
-          echo "❌ Health check failed!"
-          exit 1
-        fi
-      if: ${{ secrets.DEPLOY_HOST && secrets.HEALTH_CHECK_URL }}
-      continue-on-error: true
+      if: ${{ secrets.DEPLOY_HOST && secrets.DEPLOY_SSH_KEY && secrets.DEPLOY_USER }}
       
     - name: Notify deployment status
       run: |
