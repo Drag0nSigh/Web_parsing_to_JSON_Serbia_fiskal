@@ -215,8 +215,13 @@ jobs:
             echo "✅ Services started with docker-compose"
           else
             echo "⚠️ docker-compose failed, trying manual startup..."
+            # Останавливаем и удаляем старые контейнеры
+            docker stop fiscal_bot fiscal_postgres 2>/dev/null || true
+            docker rm fiscal_bot fiscal_postgres 2>/dev/null || true
+            
             # Создаем сеть
             docker network create fiscal_network 2>/dev/null || true
+            echo "🌐 Network fiscal_network created or already exists"
             
             # Запускаем PostgreSQL с переменными из .env
             docker run -d --name fiscal_postgres --network fiscal_network \
@@ -226,6 +231,10 @@ jobs:
               postgres:15 || true
             
             sleep 10  # Ждем запуска БД
+            
+            # Проверяем что PostgreSQL запустился
+            echo "🔍 Checking PostgreSQL connection..."
+            docker exec fiscal_postgres pg_isready -U ${POSTGRES_USER:-fiscal_user} -d ${POSTGRES_DB:-fiscal_data} || echo "PostgreSQL not ready yet"
             
             # Собираем образ бота
             docker build -t fiscal_bot -f src/Dockerfile . || true
@@ -239,6 +248,11 @@ jobs:
               -e PYTHONDONTWRITEBYTECODE=1 \
               -v ./log:/app/log \
               fiscal_bot || true
+            
+            # Проверяем подключение бота к PostgreSQL
+            sleep 5
+            echo "🔍 Testing connection from bot to PostgreSQL..."
+            docker exec fiscal_bot ping -c 1 postgres || echo "Cannot ping postgres from bot"
           fi
 
           echo "⏳ Waiting for services to start..."
@@ -246,6 +260,11 @@ jobs:
 
           echo "📊 Checking service status..."
           docker ps --filter "name=fiscal_"
+          echo "🔍 Checking networks..."
+          docker network ls
+          echo "🔍 Checking container networks..."
+          docker inspect fiscal_postgres --format='{{range .NetworkSettings.Networks}}{{.NetworkID}} {{end}}' 2>/dev/null || echo "PostgreSQL container not found"
+          docker inspect fiscal_bot --format='{{range .NetworkSettings.Networks}}{{.NetworkID}} {{end}}' 2>/dev/null || echo "Bot container not found"
 
           echo "🧹 Cleaning up old Docker resources..."
           docker system prune -f --volumes || true
