@@ -398,10 +398,14 @@ docker compose exec bot ls -la /app/log
    # Решение: Пользователь fiskal_serbia_deploy НЕ должен быть в sudo
    sudo usermod -r fiskal_serbia_deploy sudo  # Удалить из sudo
    
+   # Проблема: "rm: cannot remove '/opt/fiscal-parser': Permission denied"
+   # Решение: Исправить права доступа на папку
+   sudo chown -R fiskal_serbia_deploy:fiskal_serbia_deploy /opt/fiscal-parser
+   sudo chmod -R 755 /opt/fiscal-parser
+   
    # Проблема: "Can't find a suitable configuration file"
    # Решение: Проверить права на /opt/fiscal-parser
    ls -la /opt/fiscal-parser/
-   sudo chown -R fiskal_serbia_deploy:fiskal_serbia_deploy /opt/fiscal-parser
    
    # Проблема: Docker permission denied
    # Решение: Пользователь должен быть в группе docker
@@ -531,9 +535,13 @@ sudo mkdir -p /opt/fiscal-parser
 # Пользователь fiskal_serbia_deploy должен быть владельцем этой папки
 sudo chown -R fiskal_serbia_deploy:fiskal_serbia_deploy /opt/fiscal-parser
 
+# Установка правильных прав доступа
+sudo chmod -R 755 /opt/fiscal-parser
+
 # Создание папки для логов (для монтирования в Docker)
 sudo mkdir -p /opt/fiscal-parser/log
 sudo chown -R fiskal_serbia_deploy:fiskal_serbia_deploy /opt/fiscal-parser/log
+sudo chmod -R 755 /opt/fiscal-parser/log
 
 # Создание папки для данных PostgreSQL (если нужно)
 sudo mkdir -p /var/lib/docker/volumes/fiscal_parser_postgres_data
@@ -605,6 +613,20 @@ docker ps  # Проверка доступа к Docker
 # Проверка SSH подключения (с GitHub Actions)
 ssh fiskal_serbia_deploy@your_server_ip "echo 'SSH connection successful'"
 ssh fiskal_serbia_deploy@your_server_ip "docker ps"  # Проверка Docker через SSH
+```
+
+##### 6.1. Быстрое исправление прав (если деплой не работает):
+
+```bash
+# Выполните эти команды на сервере для исправления прав
+sudo chown -R fiskal_serbia_deploy:fiskal_serbia_deploy /opt/fiscal-parser
+sudo chmod -R 755 /opt/fiscal-parser
+sudo usermod -aG docker fiskal_serbia_deploy
+
+# Проверка
+sudo su - fiskal_serbia_deploy
+groups  # Должна быть группа docker
+ls -la /opt/fiscal-parser/  # Должен быть владельцем
 ```
 
 ##### 7. Процесс автоматического деплоя:

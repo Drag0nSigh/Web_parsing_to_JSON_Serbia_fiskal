@@ -170,9 +170,21 @@ jobs:
           fi
           
           echo "📦 Moving new code to production directory..."
-          # Удаляем старую директорию и перемещаем новую (пользователь уже владелец /opt/fiscal-parser)
-          rm -rf "$FINAL_DIR" || true
-          mv "$TEMP_DIR" "$FINAL_DIR"
+          # Обновляем содержимое директории (более безопасно чем rm -rf)
+          if [ -d "$FINAL_DIR" ]; then
+            cd "$FINAL_DIR"
+            # Останавливаем сервисы если они запущены
+            if [ -f "docker-compose.yml" ]; then
+              docker-compose down --remove-orphans || true
+            fi
+            cd ..
+            # Очищаем содержимое папки
+            rm -rf "$FINAL_DIR"/* "$FINAL_DIR"/.* 2>/dev/null || true
+          fi
+          # Перемещаем новое содержимое
+          mv "$TEMP_DIR"/* "$FINAL_DIR"/ 2>/dev/null || true
+          mv "$TEMP_DIR"/.* "$FINAL_DIR"/ 2>/dev/null || true
+          rmdir "$TEMP_DIR" || true
           cd "$FINAL_DIR"
 
           echo "📦 Building new images..."
