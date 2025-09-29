@@ -1,44 +1,45 @@
 # Зависимости для тестирования Web_parsing_to_JSON_Serbia_fiskal
 
 # Основное тестирование
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-pytest-mock>=3.10.0
-pytest-cov>=4.0.0
+pytest>=8.0.0
+pytest-asyncio>=1.2.0
+pytest-mock>=3.15.0
+pytest-cov>=7.0.0
 
 # HTML отчеты покрытия
 coverage[toml]>=7.0.0
 
 # Фикстуры и утилиты для тестов
-pytest-html>=3.1.0
-pytest-xdist>=3.0.0  # Для параллельного выполнения тестов
-pytest-timeout>=2.1.0  # Для таймаутов тестов
+pytest-html>=4.1.0
+pytest-xdist>=3.8.0  # Для параллельного выполнения тестов
+pytest-timeout>=2.4.0  # Для таймаутов тестов
 
 # Мокирование и тестовые дубликаты
-responses>=0.23.0  # Для HTTP мокирования
-freezegun>=1.2.0   # Для мокирования datetime
+responses>=0.25.0  # Для HTTP мокирования
+freezegun>=1.5.0   # Для мокирования datetime
 
 # Генерация тестовых данных
-factory-boy>=3.2.0
-faker>=18.0.0
+factory-boy>=3.3.0
+faker>=37.0.0
 
 # Тестирование базы данных
-pytest-postgresql>=4.1.0  # Для тестирования PostgreSQL
-sqlalchemy-utils>=0.40.0  # Для утилит базы данных
+pytest-postgresql>=3.1.0,<4.0.0  # Совместимо с psycopg2-binary
+sqlalchemy-utils>=0.42.0  # Для утилит базы данных
 
 # Тестирование Selenium
-pytest-selenium>=4.0.0
-selenium>=4.0.0
+pytest-selenium>=4.1.0
+selenium>=4.35.0
 
 # Окружение и конфигурация
-pytest-env>=0.8.0
-python-dotenv>=1.0.0
+pytest-env>=1.1.0
+python-dotenv>=1.1.0
 
 # Тестирование производительности
-pytest-benchmark>=4.0.0
+pytest-benchmark>=5.1.0
 
 # Отчеты тестов
 pytest-json-report>=1.5.0
-allure-pytest>=2.12.0  # Для детальных отчетов тестов
+allure-pytest>=2.15.0  # Для детальных отчетов тестов
 
-pytest-cov==7.0.0
+# Дополнительные зависимости для Python 3.13
+setuptools>=80.0.0

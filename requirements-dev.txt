@@ -1,0 +1,8 @@
+# Файл зависимостей для разработки
+# Включает основные зависимости + тестовые зависимости
+
+# Основные зависимости (из requirements.txt)
+-r requirements.txt
+
+# Тестовые зависимости (из tests/requirements-test.txt)
+-r tests/requirements-test.txt

@@ -1,5 +1,5 @@
-# Используем официальный образ Python (не alpine)
-FROM python:3.11-slim
+# Используем официальный образ Python 3.13
+FROM python:3.13-slim
 
 # Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y \
@@ -58,14 +58,14 @@ RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --d
     && apt-get install -y google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
-# Устанавливаем ChromeDriver
-RUN CHROMEDRIVER_VERSION=`curl -sS https://chromedriver.storage.googleapis.com/LATEST_RELEASE` && \
-    mkdir -p /opt/chromedriver-$CHROMEDRIVER_VERSION && \
-    curl -sS -o /tmp/chromedriver_linux64.zip https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip && \
-    unzip -qq /tmp/chromedriver_linux64.zip -d /opt/chromedriver-$CHROMEDRIVER_VERSION && \
-    rm /tmp/chromedriver_linux64.zip && \
-    chmod +x /opt/chromedriver-$CHROMEDRIVER_VERSION/chromedriver && \
-    ln -fs /opt/chromedriver-$CHROMEDRIVER_VERSION/chromedriver /usr/local/bin/chromedriver
+# Устанавливаем ChromeDriver (новый способ через Chrome for Testing)
+RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}' | cut -d'.' -f1-3) && \
+    CHROMEDRIVER_VERSION=$(curl -sS "https://googlechromelabs.github.io/chrome-for-testing/LATEST_RELEASE_${CHROME_VERSION}") && \
+    wget -q -O /tmp/chromedriver-linux64.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROMEDRIVER_VERSION}/linux64/chromedriver-linux64.zip" && \
+    unzip -qq /tmp/chromedriver-linux64.zip -d /tmp && \
+    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/ && \
+    chmod +x /usr/local/bin/chromedriver && \
+    rm -rf /tmp/chromedriver-linux64*
 
 # Устанавливаем переменные окружения для Chrome
 ENV CHROME_BIN=/usr/bin/google-chrome
@@ -76,23 +76,38 @@ ENV DISPLAY=:99
 # Создаем рабочую директорию
 WORKDIR /app
 
-# Копируем файл зависимостей
-COPY requirements.txt .
+# Копируем файлы зависимостей
+COPY requirements.txt requirements-dev.txt ./
+COPY tests/requirements-test.txt ./tests/
 
-# Устанавливаем Python зависимости
-RUN pip install --no-cache-dir -r requirements.txt
+# Обновляем pip и устанавливаем Python зависимости
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Создаем пользователя для безопасности
 RUN useradd --create-home --shell /bin/bash appuser
 
-# Копируем исходный код проекта и сразу даем права
-COPY --chown=appuser:appuser src/ .
+# Создаем необходимые директории
+RUN mkdir -p /app/log /app/src && \
+    chmod -R 755 /app/log
 
-# Создаем папку логов с полными правами доступа
-RUN mkdir -p /app/log && chmod -R 777 /app/log
+# Копируем исходный код проекта
+COPY --chown=appuser:appuser src/ ./src/
+
+# Устанавливаем переменные окружения для Python
+ENV PYTHONPATH=/app/src
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 # Переключаемся на пользователя appuser
 USER appuser
+
+# Устанавливаем рабочую директорию в src
+WORKDIR /app/src
+
+# Добавляем healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import sys; sys.exit(0)" || exit 1
 
 # Команда по умолчанию - запуск бота
 CMD ["python", "bot_tg/start_bot.py"]

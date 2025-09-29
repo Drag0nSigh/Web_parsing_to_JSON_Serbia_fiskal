@@ -39,6 +39,11 @@ services:
       # Настройки Telegram бота
       TG_TOKEN: ${TG_TOKEN}
       ADMIN_ID: ${ADMIN_ID}
+      
+      # Настройки Python
+      PYTHONPATH: /app/src
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
     depends_on:
       postgres:
         condition: service_healthy
@@ -47,6 +52,12 @@ services:
       - ./log:/app/log
     networks:
       - fiscal_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 networks:
   fiscal_network:

@@ -22,3 +22,6 @@ black>=24.8.0
 isort>=5.13.2
 flake8>=7.1.0
 autoflake>=2.3.1
+
+# Дополнительные зависимости для Python 3.13
+setuptools>=80.0.0

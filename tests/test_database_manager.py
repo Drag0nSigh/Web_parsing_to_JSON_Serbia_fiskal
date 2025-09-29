@@ -19,16 +19,6 @@ class TestDatabaseManager:
             DatabaseManager()
             mock_setup.assert_called_once()
 
-    @patch.dict(
-        "os.environ",
-        {
-            "POSTGRES_HOST": "test_host",
-            "POSTGRES_PORT": "5432",
-            "POSTGRES_USER": "test_user",
-            "POSTGRES_PASSWORD": "test_pass",
-            "POSTGRES_DB": "test_db",
-        },
-    )
     @patch("db.database.create_engine")
     @patch("db.database.sessionmaker")
     def test_setup_database_with_env_vars(self, mock_sessionmaker, mock_create_engine):
@@ -38,14 +28,29 @@ class TestDatabaseManager:
         mock_session_class = Mock()
         mock_sessionmaker.return_value = mock_session_class
 
-        dm = DatabaseManager()
+        # Мокируем os.getenv для возврата тестовых значений
+        with patch("os.getenv") as mock_getenv:
+            def getenv_side_effect(key, default=None):
+                env_vars = {
+                    "DATABASE_URL": None,
+                    "POSTGRES_HOST": "test_host",
+                    "POSTGRES_PORT": "5432",
+                    "POSTGRES_USER": "test_user",
+                    "POSTGRES_PASSWORD": "test_pass",
+                    "POSTGRES_DB": "test_db",
+                }
+                return env_vars.get(key, default)
+            
+            mock_getenv.side_effect = getenv_side_effect
 
-        expected_url = "postgresql://test_user:test_pass@test_host:5432/test_db"
-        mock_create_engine.assert_called_once_with(expected_url, echo=False, pool_pre_ping=True, pool_recycle=3600)
-        mock_sessionmaker.assert_called_once_with(autocommit=False, autoflush=False, bind=mock_engine)
+            dm = DatabaseManager()
 
-        assert dm.engine == mock_engine
-        assert dm.SessionLocal == mock_session_class
+            expected_url = "postgresql://test_user:test_pass@test_host:5432/test_db"
+            mock_create_engine.assert_called_once_with(expected_url, echo=False, pool_pre_ping=True, pool_recycle=3600)
+            mock_sessionmaker.assert_called_once_with(autocommit=False, autoflush=False, bind=mock_engine)
+
+            assert dm.engine == mock_engine
+            assert dm.SessionLocal == mock_session_class
 
     @patch.dict("os.environ", {"DATABASE_URL": "postgresql://user:pass@host:5432/db"})
     @patch("db.database.create_engine")
