@@ -152,13 +152,28 @@ jobs:
           set -e  # Остановить выполнение при ошибке
 
           echo "👤 Current user: $(whoami)"
-          echo "📁 Changing to project directory..."
+          echo "📁 Checking project directory..."
+          
+          # Проверяем, существует ли директория проекта
+          if [ ! -d "/opt/fiscal-parser" ]; then
+            echo "📂 Creating project directory..."
+            sudo mkdir -p /opt/fiscal-parser
+            sudo chown $USER:$USER /opt/fiscal-parser
+          fi
+          
           cd /opt/fiscal-parser || { echo "❌ Failed to change to /opt/fiscal-parser"; exit 1; }
 
-          echo "🔄 Updating code from git..."
-          git fetch origin
-          git reset --hard origin/main
-          git clean -fd
+          # Проверяем, является ли директория Git репозиторием
+          if [ ! -d ".git" ]; then
+            echo "🔄 Initializing Git repository and cloning..."
+            git clone https://github.com/${{ github.repository }}.git .
+            git checkout main
+          else
+            echo "🔄 Updating code from git..."
+            git fetch origin
+            git reset --hard origin/main
+            git clean -fd
+          fi
 
           echo "🛑 Stopping existing services..."
           docker-compose down --remove-orphans || true
