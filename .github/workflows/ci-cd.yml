@@ -219,6 +219,10 @@ jobs:
             docker stop fiscal_bot fiscal_postgres 2>/dev/null || true
             docker rm fiscal_bot fiscal_postgres 2>/dev/null || true
             
+            # Удаляем старые volumes нашего проекта чтобы пересоздать базу данных с правильными пользователями
+            echo "🗑️ Removing old PostgreSQL volume to recreate database..."
+            docker volume rm fiscal_postgres_data 2>/dev/null || echo "Volume fiscal_postgres_data not found or already removed"
+            
             # Проверяем Docker daemon и права
             echo "🔍 Checking Docker daemon status..."
             docker version || echo "Docker daemon not accessible"
@@ -259,7 +263,7 @@ jobs:
             if docker run -d --name fiscal_postgres --network fiscal_network \
               --env-file .env \
               -p ${POSTGRES_PORT:-5432}:5432 \
-              -v postgres_data:/var/lib/postgresql/data \
+              -v fiscal_postgres_data:/var/lib/postgresql/data_fiscal_data \
               postgres:15; then
               echo "✅ PostgreSQL container started successfully"
             else
@@ -282,7 +286,7 @@ jobs:
                 -e POSTGRES_USER="${POSTGRES_USER_VAL:-fiscal_user}" \
                 -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD_VAL:-secure_password_123}" \
                 -p ${POSTGRES_PORT:-5432}:5432 \
-                -v postgres_data:/var/lib/postgresql/data \
+                -v fiscal_postgres_data:/var/lib/postgresql/data_fiscal_data \
                 postgres:15; then
                 echo "✅ PostgreSQL container started with direct env vars"
               else

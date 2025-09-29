@@ -484,6 +484,28 @@ docker-compose restart postgres
    
    # Проверить что контейнер запустился
    docker ps | grep test_postgres
+   
+   # Если ошибка "Role TG_BOT does not exist" - нужно пересоздать базу данных:
+   # 1. Остановить контейнеры
+   docker stop fiscal_bot fiscal_postgres 2>/dev/null || true
+   docker rm fiscal_bot fiscal_postgres 2>/dev/null || true
+   
+   # 2. Удалить старый volume с базой данных
+   docker volume rm fiscal_postgres_data 2>/dev/null || echo "Volume not found"
+   
+   # 3. Запустить PostgreSQL заново (он создаст базу с правильными пользователями)
+   docker network create fiscal_network 2>/dev/null || true
+   docker run -d --name fiscal_postgres --network fiscal_network \
+     --env-file .env \
+     -p 5432:5432 \
+     -v fiscal_postgres_data:/var/lib/postgresql/data \
+     postgres:15
+   
+   # 4. Подождать инициализации (30 секунд)
+   sleep 30
+   
+   # 5. Проверить что пользователь создался
+   docker exec fiscal_postgres psql -U postgres -c "\du"
    ```
 
 ### Логи для отладки:
