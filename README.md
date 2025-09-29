@@ -442,6 +442,14 @@ docker-compose restart postgres
    
    # Проверить подключение между контейнерами
    docker exec fiscal_bot ping -c 1 postgres
+   
+   # Если PostgreSQL не запускается, попробовать простую команду:
+   docker run --rm -d --name test_postgres \
+     -e POSTGRES_DB=test -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test \
+     -p 5433:5432 postgres:15
+   
+   # Проверить что контейнер запустился
+   docker ps | grep test_postgres
    ```
 
 ### Логи для отладки:
