@@ -443,6 +443,40 @@ docker-compose restart postgres
    # Проверить подключение между контейнерами
    docker exec fiscal_bot ping -c 1 postgres
    
+   # Если бот не может найти postgres (DNS проблема):
+   
+   # 1. Проверить статус PostgreSQL контейнера
+   docker ps --filter "name=fiscal_postgres"
+   docker logs fiscal_postgres
+   
+   # 2. Получить IP адрес PostgreSQL (разные способы)
+   POSTGRES_IP=$(docker inspect fiscal_postgres --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
+   echo "PostgreSQL IP (method 1): $POSTGRES_IP"
+   
+   # Альтернативный способ получения IP
+   NETWORK_ID=$(docker inspect fiscal_postgres --format='{{range $key, $value := .NetworkSettings.Networks}}{{$key}}{{end}}')
+   POSTGRES_IP=$(docker network inspect "$NETWORK_ID" --format='{{range .Containers}}{{if eq .Name "fiscal_postgres"}}{{.IPv4Address}}{{end}}{{end}}' | cut -d'/' -f1)
+   echo "PostgreSQL IP (method 2): $POSTGRES_IP"
+   
+   # 3. Если IP пустой, попробовать подключение через localhost
+   if [ -z "$POSTGRES_IP" ] || [ "$POSTGRES_IP" = "<no value>" ]; then
+     echo "⚠️ Cannot get PostgreSQL IP, trying localhost connection..."
+     docker stop fiscal_bot
+     docker rm fiscal_bot
+     docker run -d --name fiscal_bot \
+       --env-file .env \
+       -e POSTGRES_HOST=host.docker.internal \
+       -v ./log:/app/log fiscal_bot
+   else
+     # 4. Перезапустить бота с IP адресом
+     docker stop fiscal_bot
+     docker rm fiscal_bot
+     docker run -d --name fiscal_bot --network fiscal_network \
+       --env-file .env \
+       -e POSTGRES_HOST="$POSTGRES_IP" \
+       -v ./log:/app/log fiscal_bot
+   fi
+   
    # Если PostgreSQL не запускается, попробовать простую команду:
    docker run --rm -d --name test_postgres \
      -e POSTGRES_DB=test -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test \

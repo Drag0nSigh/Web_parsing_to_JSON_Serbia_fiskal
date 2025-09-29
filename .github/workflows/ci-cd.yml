@@ -308,27 +308,112 @@ jobs:
               exit 1
             fi
             
+            # Проверяем статус PostgreSQL контейнера
+            echo "🔍 Checking PostgreSQL container status..."
+            if docker ps --filter "name=fiscal_postgres" --format "{{.Status}}" | grep -q "Up"; then
+              echo "✅ PostgreSQL container is running"
+              
+              # Получаем IP адрес PostgreSQL для подключения
+              echo "🔍 Getting PostgreSQL IP address..."
+              POSTGRES_IP=$(docker inspect fiscal_postgres --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
+              if [ -n "$POSTGRES_IP" ] && [ "$POSTGRES_IP" != "<no value>" ]; then
+                echo "✅ PostgreSQL IP: $POSTGRES_IP"
+              else
+                echo "⚠️ Cannot get PostgreSQL IP, trying alternative approaches..."
+                
+                # Пробуем получить IP через docker network inspect
+                echo "🔍 Trying to get IP via network inspection..."
+                NETWORK_ID=$(docker inspect fiscal_postgres --format='{{range $key, $value := .NetworkSettings.Networks}}{{$key}}{{end}}' 2>/dev/null)
+                if [ -n "$NETWORK_ID" ]; then
+                  POSTGRES_IP=$(docker network inspect "$NETWORK_ID" --format='{{range .Containers}}{{if eq .Name "fiscal_postgres"}}{{.IPv4Address}}{{end}}{{end}}' 2>/dev/null | cut -d'/' -f1)
+                  if [ -n "$POSTGRES_IP" ]; then
+                    echo "✅ PostgreSQL IP via network inspect: $POSTGRES_IP"
+                  else
+                    echo "⚠️ Still cannot get IP, will use hostname 'postgres'"
+                    POSTGRES_IP="postgres"
+                  fi
+                else
+                  echo "⚠️ Cannot get network ID, will use hostname 'postgres'"
+                  POSTGRES_IP="postgres"
+                fi
+              fi
+            else
+              echo "❌ PostgreSQL container is not running!"
+              echo "🔍 PostgreSQL container status:"
+              docker ps -a --filter "name=fiscal_postgres" || echo "No fiscal_postgres container found"
+              echo "🔍 PostgreSQL container logs:"
+              docker logs fiscal_postgres 2>/dev/null || echo "No logs available"
+              echo "❌ Cannot start bot without PostgreSQL"
+              exit 1
+            fi
+            
             # Запускаем бота с правильными переменными окружения из .env
             echo "🤖 Starting bot container..."
             if docker run -d --name fiscal_bot --network fiscal_network \
               --env-file .env \
-              -e POSTGRES_HOST=postgres \
+              -e POSTGRES_HOST="$POSTGRES_IP" \
               -e PYTHONPATH=/app/src \
               -e PYTHONUNBUFFERED=1 \
               -e PYTHONDONTWRITEBYTECODE=1 \
               -v ./log:/app/log \
               fiscal_bot; then
-              echo "✅ Bot container started successfully"
+              echo "✅ Bot container started successfully with POSTGRES_HOST=$POSTGRES_IP"
             else
-              echo "❌ Failed to start bot container"
+              echo "❌ Failed to start bot container with network, trying localhost connection..."
               echo "🔍 Checking if container exists but failed to start..."
               docker logs fiscal_bot 2>/dev/null || echo "Container does not exist"
+              
+              # Пробуем запустить без сети, через localhost
+              echo "🔄 Trying to start bot without network (localhost connection)..."
+              docker rm fiscal_bot 2>/dev/null || true
+              
+              # Получаем порт PostgreSQL
+              POSTGRES_PORT_VAL=$(grep "^POSTGRES_PORT=" .env | cut -d'=' -f2 || echo "5432")
+              
+              if docker run -d --name fiscal_bot \
+                --env-file .env \
+                -e POSTGRES_HOST=host.docker.internal \
+                -e POSTGRES_PORT="$POSTGRES_PORT_VAL" \
+                -e PYTHONPATH=/app/src \
+                -e PYTHONUNBUFFERED=1 \
+                -e PYTHONDONTWRITEBYTECODE=1 \
+                -v ./log:/app/log \
+                fiscal_bot; then
+                echo "✅ Bot container started with host.docker.internal"
+              else
+                echo "❌ Failed to start bot even with host.docker.internal"
+                echo "🔍 Final container status check:"
+                docker ps -a --filter "name=fiscal_" || echo "No fiscal containers found"
+                exit 1
+              fi
             fi
             
             # Проверяем подключение бота к PostgreSQL
             sleep 5
             echo "🔍 Testing connection from bot to PostgreSQL..."
             docker exec fiscal_bot ping -c 1 postgres || echo "Cannot ping postgres from bot"
+            
+            # Проверяем сетевую конфигурацию
+            echo "🔍 Network configuration check..."
+            echo "📋 PostgreSQL container networks:"
+            docker inspect fiscal_postgres --format='{{range $key, $value := .NetworkSettings.Networks}}{{$key}}: {{$value.IPAddress}}{{end}}' 2>/dev/null || echo "Cannot inspect PostgreSQL network"
+            
+            echo "📋 Bot container networks:"
+            docker inspect fiscal_bot --format='{{range $key, $value := .NetworkSettings.Networks}}{{$key}}: {{$value.IPAddress}}{{end}}' 2>/dev/null || echo "Cannot inspect Bot network"
+            
+            # Проверяем DNS resolution внутри контейнера бота
+            echo "🔍 DNS resolution test from bot container..."
+            docker exec fiscal_bot nslookup postgres || echo "DNS resolution failed"
+            
+            # Проверяем доступность PostgreSQL по IP
+            echo "🔍 Trying to connect to PostgreSQL by IP..."
+            POSTGRES_IP=$(docker inspect fiscal_postgres --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
+            if [ -n "$POSTGRES_IP" ]; then
+              echo "PostgreSQL IP: $POSTGRES_IP"
+              docker exec fiscal_bot ping -c 1 "$POSTGRES_IP" || echo "Cannot ping PostgreSQL by IP"
+            else
+              echo "Cannot get PostgreSQL IP address"
+            fi
           fi
 
           echo "⏳ Waiting for services to start..."
