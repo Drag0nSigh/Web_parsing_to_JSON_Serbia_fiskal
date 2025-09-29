@@ -210,8 +210,34 @@ jobs:
           docker-compose build --no-cache --pull 2>/dev/null || true
 
           echo "🚀 Starting services..."
-          # Игнорируем ошибки совместимости Docker Compose 1.29.2 с Docker API
-          docker-compose up -d 2>/dev/null || true
+          # Пытаемся запустить через docker-compose
+          if docker-compose up -d 2>/dev/null; then
+            echo "✅ Services started with docker-compose"
+          else
+            echo "⚠️ docker-compose failed, trying manual startup..."
+            # Создаем сеть
+            docker network create fiscal_network 2>/dev/null || true
+            
+            # Запускаем PostgreSQL
+            docker run -d --name fiscal_postgres --network fiscal_network \
+              -e POSTGRES_DB=${POSTGRES_DB:-fiscal_data} \
+              -e POSTGRES_USER=${POSTGRES_USER:-fiscal_user} \
+              -e POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-secure_password_123} \
+              -p ${POSTGRES_PORT:-5432}:5432 \
+              -v postgres_data:/var/lib/postgresql/data \
+              postgres:15 || true
+            
+            sleep 5  # Ждем запуска БД
+            
+            # Собираем образ бота
+            docker build -t fiscal_bot -f src/Dockerfile . || true
+            
+            # Запускаем бота
+            docker run -d --name fiscal_bot --network fiscal_network \
+              --env-file .env \
+              -v ./log:/app/log \
+              fiscal_bot || true
+          fi
 
           echo "⏳ Waiting for services to start..."
           sleep 10

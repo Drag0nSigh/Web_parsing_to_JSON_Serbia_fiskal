@@ -418,8 +418,14 @@ docker-compose restart postgres
    
    # Проблема: "HTTPConnection.request() got an unexpected keyword argument 'chunked'"
    # Причина: Docker Compose 1.29.2 несовместим с новым Docker API (urllib3 конфликт)
-   # Решение: CI игнорирует эти ошибки и продолжает работу
-   # docker-compose.yml адаптирован под версию 2.24.6
+   # Решение: Запуск через docker run напрямую
+   docker network create fiscal_network 2>/dev/null || true
+   docker run -d --name fiscal_postgres --network fiscal_network \
+     -e POSTGRES_DB=fiscal_data -e POSTGRES_USER=fiscal_user \
+     -e POSTGRES_PASSWORD=your_password -p 5432:5432 postgres:15
+   docker build -t fiscal_bot -f src/Dockerfile .
+   docker run -d --name fiscal_bot --network fiscal_network \
+     --env-file .env -v ./log:/app/log fiscal_bot
    ```
 
 ### Логи для отладки:
@@ -691,7 +697,7 @@ CI автоматически выполняет следующие действ
 4. **Восстановление .env файла**: Автоматическое восстановление из /tmp/.env.backup
 5. **Создание .env из шаблона** (если файл не найден): Копирование env_example.txt → .env
 6. **Сборка новых образов**: `docker-compose build --no-cache --pull`
-7. **Запуск сервисов**: `docker-compose up -d`
+7. **Запуск сервисов**: Попытка через `docker-compose up -d` или ручной запуск через `docker run`
 8. **Проверка статуса**: Вывод статуса всех контейнеров
 9. **Очистка ресурсов**: `docker system prune -f --volumes`
 
