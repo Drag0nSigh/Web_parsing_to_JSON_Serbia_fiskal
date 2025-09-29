@@ -173,7 +173,7 @@ jobs:
           # Останавливаем сервисы
           if [ -d "$FINAL_DIR" ]; then
             cd "$FINAL_DIR"
-            docker-compose down --remove-orphans || true
+            docker-compose down --remove-orphans
             cd ..
           fi
           
@@ -215,14 +215,14 @@ jobs:
           sleep 10
 
           echo "📊 Checking service status..."
-          docker-compose ps
+          docker ps --filter "name=fiscal_"
 
           echo "🧹 Cleaning up old Docker resources..."
           docker system prune -f --volumes || true
 
           echo "✅ Deployment completed successfully!"
           echo "🎯 Services running:"
-          docker-compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" --filter "name=fiscal_"
         EOF
 
     - name: Notify deployment status
