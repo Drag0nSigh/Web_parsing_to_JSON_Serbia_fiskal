@@ -414,12 +414,14 @@ class FiscalParser:
                     logger.debug(f"  ✅ Строка {i} похожа на товар")
                     try:
                         item = self._parse_item_row(cells)
-                        if item and item["name"]:  # Только если есть название
+                        if item and item.get("name"):  # Только если есть название
                             items.append(item)
                             logger.info(
                                 f"  ✅ Товар {len(items)}: {item['name']} - "
                                 f"{item['quantity']} x {item['price']} = {item['sum']}"
                             )
+                        elif item is None:
+                            logger.debug(f"  ⚠️ Строка пропущена (заголовок таблицы)")
                         else:
                             logger.warning(f"  ❌ Товар не создан или без названия")
                     except Exception as e:
@@ -455,7 +457,7 @@ class FiscalParser:
                 if len(cells) >= 4:  # Минимум 4 колонки
                     try:
                         item = self._parse_item_row(cells)
-                        if item and item["name"]:
+                        if item and item.get("name"):
                             # Создаем уникальный ключ для товара
                             item_key = f"{item['name']}_{item['quantity']}_{item['price']}"
                             if item_key not in seen_items:
@@ -464,6 +466,8 @@ class FiscalParser:
                                 logger.info(f"    ✅ Товар: {item['name']}")
                             else:
                                 logger.debug(f"    ⚠️ Дублированный товар: {item['name']}")
+                        elif item is None:
+                            logger.debug(f"    ⚠️ Строка пропущена (заголовок таблицы)")
                     except Exception as e:
                         logger.error(f"    ❌ Ошибка: {e}")
 
@@ -547,6 +551,19 @@ class FiscalParser:
         if len(cell_texts) < 4:  # Минимум название, количество, цена, сумма
             return False
 
+        # Проверяем, не является ли строка заголовком таблицы
+        header_keywords = ["назив", "количина", "јед. цена", "укупна цена", "основица", "пдв", "стопа"]
+        first_cell = cell_texts[0].strip().lower()
+        
+        # Если первая ячейка содержит только заголовочные слова, это заголовок
+        if first_cell in header_keywords:
+            return False
+            
+        # Проверяем, что все ячейки не являются заголовочными словами
+        all_header_cells = all(cell.strip().lower() in header_keywords for cell in cell_texts if cell.strip())
+        if all_header_cells:
+            return False
+
         # Проверяем наличие числовых значений в колонках
         try:
             # Колонка 1 (количество) должна быть числом
@@ -578,6 +595,12 @@ class FiscalParser:
         tax_base_text = cells[4].get_text(strip=True) if len(cells) > 4 else "0"
         vat_amount_text = cells[5].get_text(strip=True) if len(cells) > 5 else "0"
         label = cells[6].get_text(strip=True) if len(cells) > 6 else "Е"
+
+        # Дополнительная проверка на заголовок таблицы
+        header_keywords = ["назив", "количина", "јед. цена", "укупна цена", "основица", "пдв", "стопа"]
+        if name.lower() in header_keywords:
+            logger.debug(f"    ⚠️ Пропускаем заголовок таблицы: {name}")
+            return None
 
         logger.debug(f"    📝 Парсим товар: {name} | {quantity_text} | {unit_price_text} | {total_text}")
 
