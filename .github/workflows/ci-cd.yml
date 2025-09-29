@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -170,9 +170,9 @@ jobs:
           fi
           
           echo "📦 Moving new code to production directory..."
-          sudo rm -rf "$FINAL_DIR" || true
-          sudo mv "$TEMP_DIR" "$FINAL_DIR"
-          sudo chown -R $USER:$USER "$FINAL_DIR"
+          # Удаляем старую директорию и перемещаем новую (пользователь уже владелец /opt/fiscal-parser)
+          rm -rf "$FINAL_DIR" || true
+          mv "$TEMP_DIR" "$FINAL_DIR"
           cd "$FINAL_DIR"
 
           echo "📦 Building new images..."

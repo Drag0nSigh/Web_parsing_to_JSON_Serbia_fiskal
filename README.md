@@ -57,9 +57,9 @@
 │   ├── requirements-test.txt   # Зависимости для тестов
 │   └── TESTING_GUIDE.md        # Руководство по тестированию
 ├── .github/                    # GitHub Actions
-│   └── workflows/              # CI автоматизация
-│       ├── ci.yml              # Проверка кода и тестов
-│       └── README.md           # Документация CI
+│   └── workflows/              # CI/CD автоматизация
+│       ├── ci-cd.yml           # Проверка кода, тесты и деплой
+│       └── README.md           # Документация CI/CD
 ├── .env                        # Настройки бота и БД
 ├── env_example.txt             # Пример настроек
 ├── docker-compose.yml          # Docker Compose конфигурация
@@ -392,6 +392,23 @@ docker compose exec bot ls -la /app/log
    - Убедитесь в доступности сайта
    - Проверьте формат ссылки
 
+5. **Ошибки деплоя CI/CD**
+   ```bash
+   # Проблема: "sudo: a terminal is required to read the password"
+   # Решение: Пользователь fiskal_serbia_deploy НЕ должен быть в sudo
+   sudo usermod -r fiskal_serbia_deploy sudo  # Удалить из sudo
+   
+   # Проблема: "Can't find a suitable configuration file"
+   # Решение: Проверить права на /opt/fiscal-parser
+   ls -la /opt/fiscal-parser/
+   sudo chown -R fiskal_serbia_deploy:fiskal_serbia_deploy /opt/fiscal-parser
+   
+   # Проблема: Docker permission denied
+   # Решение: Пользователь должен быть в группе docker
+   sudo usermod -aG docker fiskal_serbia_deploy
+   newgrp docker  # Применить группу
+   ```
+
 ### Логи для отладки:
 ```bash
 # Подробные логи бота
@@ -440,11 +457,11 @@ docker stats
 docker compose exec bot du -sh /app/log/*
 ```
 
-## 🚀 GitHub Actions CI
+## 🚀 GitHub Actions CI/CD
 
-### Автоматическая проверка кода
+### Автоматическая проверка кода и деплой
 
-Простой CI workflow для поддержания качества:
+Полнофункциональный CI/CD workflow для поддержания качества и автоматического деплоя:
 
 #### ✅ Что проверяется:
 - **Форматирование**: Black (line-length=120) для единого стиля кода
@@ -479,7 +496,7 @@ pre-commit run --all-files
 
 #### 📊 Badge статуса:
 ```markdown
-![CI](https://github.com/username/repo/workflows/CI/badge.svg)
+![CI/CD](https://github.com/username/repo/workflows/CI-CD/badge.svg)
 ```
 
 #### 🔧 Настройка сервера для деплоя:
@@ -493,11 +510,15 @@ sudo useradd -m -s /bin/bash fiskal_serbia_deploy
 # Добавление пользователя в группу docker
 sudo usermod -aG docker fiskal_serbia_deploy
 
-# Добавление пользователя в группу sudo (для управления сервисами)
-sudo usermod -aG sudo fiskal_serbia_deploy
+# НЕ добавляем в sudo - пользователь будет работать только с Docker
+# sudo usermod -aG sudo fiskal_serbia_deploy
 
-# Переключение на пользователя деплоя
+# ВАЖНО: Перезайти в систему для применения групп
+# Или выполнить: newgrp docker
 sudo su - fiskal_serbia_deploy
+
+# Проверка групп пользователя
+groups
 ```
 
 ##### 2. Создание необходимых папок:
@@ -506,16 +527,20 @@ sudo su - fiskal_serbia_deploy
 # Создание директории проекта (как указано в CI)
 sudo mkdir -p /opt/fiscal-parser
 
-# Назначение прав пользователю деплоя
+# КРИТИЧНО: Назначение прав пользователю деплоя
+# Пользователь fiskal_serbia_deploy должен быть владельцем этой папки
 sudo chown -R fiskal_serbia_deploy:fiskal_serbia_deploy /opt/fiscal-parser
 
 # Создание папки для логов (для монтирования в Docker)
 sudo mkdir -p /opt/fiscal-parser/log
 sudo chown -R fiskal_serbia_deploy:fiskal_serbia_deploy /opt/fiscal-parser/log
 
-# Создание папки для данных PostgreSQL
+# Создание папки для данных PostgreSQL (если нужно)
 sudo mkdir -p /var/lib/docker/volumes/fiscal_parser_postgres_data
 sudo chown -R fiskal_serbia_deploy:fiskal_serbia_deploy /var/lib/docker/volumes/fiscal_parser_postgres_data
+
+# Проверка прав доступа
+ls -la /opt/fiscal-parser/
 ```
 
 ##### 3. Настройка SSH ключей:
@@ -571,12 +596,15 @@ DEPLOY_SSH_KEY=your_private_ssh_key     # Приватный SSH ключ (по�
 ls -la /opt/fiscal-parser/
 ls -la /opt/fiscal-parser/log/
 
-# Проверка Docker
+# Проверка Docker (от пользователя fiskal_serbia_deploy)
+sudo su - fiskal_serbia_deploy
 docker --version
 docker-compose --version
+docker ps  # Проверка доступа к Docker
 
 # Проверка SSH подключения (с GitHub Actions)
 ssh fiskal_serbia_deploy@your_server_ip "echo 'SSH connection successful'"
+ssh fiskal_serbia_deploy@your_server_ip "docker ps"  # Проверка Docker через SSH
 ```
 
 ##### 7. Процесс автоматического деплоя:
