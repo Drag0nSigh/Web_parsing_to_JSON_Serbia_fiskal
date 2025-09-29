@@ -152,31 +152,28 @@ jobs:
           set -e  # Остановить выполнение при ошибке
 
           echo "👤 Current user: $(whoami)"
-          echo "📁 Checking project directory..."
+          echo "📁 Preparing deployment..."
           
-          # Проверяем, существует ли директория проекта
-          if [ ! -d "/opt/fiscal-parser" ]; then
-            echo "📂 Creating project directory..."
-            sudo mkdir -p /opt/fiscal-parser
-            sudo chown $USER:$USER /opt/fiscal-parser
-          fi
+          # Создаем временную директорию для клонирования
+          TEMP_DIR="/tmp/fiscal-parser-$(date +%s)"
+          FINAL_DIR="/opt/fiscal-parser"
           
-          cd /opt/fiscal-parser || { echo "❌ Failed to change to /opt/fiscal-parser"; exit 1; }
-
-          # Проверяем, является ли директория Git репозиторием
-          if [ ! -d ".git" ]; then
-            echo "🔄 Initializing Git repository and cloning..."
-            git clone https://github.com/${{ github.repository }}.git .
-            git checkout main
-          else
-            echo "🔄 Updating code from git..."
-            git fetch origin
-            git reset --hard origin/main
-            git clean -fd
-          fi
-
+          echo "📂 Cloning repository to temporary directory..."
+          git clone https://github.com/${{ github.repository }}.git "$TEMP_DIR"
+          cd "$TEMP_DIR"
+          git checkout main
+          
           echo "🛑 Stopping existing services..."
-          docker-compose down --remove-orphans || true
+          if [ -d "$FINAL_DIR" ]; then
+            cd "$FINAL_DIR"
+            docker-compose down --remove-orphans || true
+          fi
+          
+          echo "📦 Moving new code to production directory..."
+          sudo rm -rf "$FINAL_DIR" || true
+          sudo mv "$TEMP_DIR" "$FINAL_DIR"
+          sudo chown -R $USER:$USER "$FINAL_DIR"
+          cd "$FINAL_DIR"
 
           echo "📦 Building new images..."
           docker-compose build --no-cache --pull
