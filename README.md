@@ -176,13 +176,13 @@ DAILY_REQUEST_LIMIT=50
 
 ```bash
 # Запуск всех сервисов
-docker compose up -d
+docker-compose up -d
 
 # Просмотр логов бота
-docker compose logs bot -f
+docker-compose logs bot -f
 
 # Остановка
-docker compose down
+docker-compose down
 ```
 
 ### Локально
@@ -371,17 +371,17 @@ docker compose exec bot ls -la /app/log
 
 2. **База данных недоступна**
    ```bash
-   # Проверка статуса
-   docker compose ps
+# Проверка статуса
+docker-compose ps
 
-   # Перезапуск БД
-   docker compose restart postgres
+# Перезапуск БД
+docker-compose restart postgres
    ```
 
 3. **Логи не создаются**
    ```bash
    # Проверка прав доступа
-   docker compose exec bot ls -la /app/log
+   docker-compose exec bot ls -la /app/log
 
    # Локально
    ls -la src/log
@@ -411,18 +411,22 @@ docker compose exec bot ls -la /app/log
    # Решение: Пользователь должен быть в группе docker
    sudo usermod -aG docker fiskal_serbia_deploy
    newgrp docker  # Применить группу
+   
+   # Проблема: "The POSTGRES_DB variable is not set"
+   # Решение: .env файл должен быть создан один раз на сервере
+   # См. раздел "4.1. Создание .env файла на сервере" выше
    ```
 
 ### Логи для отладки:
 ```bash
 # Подробные логи бота
-docker compose logs bot --tail=100
+docker-compose logs bot --tail=100
 
 # Логи базы данных
-docker compose logs postgres --tail=50
+docker-compose logs postgres --tail=50
 
 # Логи внутри контейнера
-docker compose exec bot tail -f /app/log/bot_$(date +%Y-%m-%d).log
+docker-compose exec bot tail -f /app/log/bot_$(date +%Y-%m-%d).log
 ```
 
 ## 🔄 Архитектура
@@ -452,13 +456,13 @@ docker compose exec bot tail -f /app/log/bot_$(date +%Y-%m-%d).log
 ### Команды для мониторинга:
 ```bash
 # Статус контейнеров
-docker compose ps
+docker-compose ps
 
 # Использование ресурсов
 docker stats
 
 # Размер логов
-docker compose exec bot du -sh /app/log/*
+docker-compose exec bot du -sh /app/log/*
 ```
 
 ## 🚀 GitHub Actions CI/CD
@@ -575,9 +579,40 @@ sudo sh get-docker.sh
 sudo systemctl start docker
 sudo systemctl enable docker
 
-# Установка Docker Compose
+# Установка Docker Compose (если не установлен)
 sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 sudo chmod +x /usr/local/bin/docker-compose
+
+# Проверка установки
+docker --version
+docker-compose --version  # Должна быть версия 2.24.6 или новее
+```
+
+##### 4.1. Создание .env файла на сервере:
+
+```bash
+# Переключиться на пользователя деплоя
+sudo su - fiskal_serbia_deploy
+
+# Перейти в директорию проекта
+cd /opt/fiscal-parser
+
+# Создать .env файл
+nano .env
+
+# Содержимое .env файла:
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_DB=fiscal_data
+POSTGRES_USER=fiscal_user
+POSTGRES_PASSWORD=ваш_безопасный_пароль_для_бд
+TG_TOKEN=ваш_токен_telegram_бота
+ADMIN_ID=ваш_telegram_id
+LOG_RETENTION_DAYS=30
+DAILY_REQUEST_LIMIT=50
+
+# Установить правильные права
+chmod 600 .env
 ```
 
 ##### 5. GitHub Secrets для автоматического деплоя:
@@ -627,6 +662,18 @@ sudo usermod -aG docker fiskal_serbia_deploy
 sudo su - fiskal_serbia_deploy
 groups  # Должна быть группа docker
 ls -la /opt/fiscal-parser/  # Должен быть владельцем
+
+# Создание .env файла (если не существует)
+cd /opt/fiscal-parser
+if [ ! -f .env ]; then
+  cp env_example.txt .env
+  chmod 600 .env
+  echo "Создан .env файл. Отредактируйте его с вашими значениями:"
+  echo "TG_TOKEN=ваш_реальный_токен_бота"
+  echo "ADMIN_ID=ваш_реальный_telegram_id"
+  echo "POSTGRES_PASSWORD=ваш_безопасный_пароль"
+  nano .env
+fi
 ```
 
 ##### 7. Процесс автоматического деплоя:
@@ -634,13 +681,16 @@ ls -la /opt/fiscal-parser/  # Должен быть владельцем
 CI автоматически выполняет следующие действия при push в main:
 
 1. **Остановка существующих сервисов**: `docker-compose down --remove-orphans`
-2. **Обновление кода**: Git fetch и reset или клонирование репозитория
-3. **Сборка новых образов**: `docker-compose build --no-cache --pull`
-4. **Запуск сервисов**: `docker-compose up -d`
-5. **Проверка статуса**: Вывод статуса всех контейнеров
-6. **Очистка ресурсов**: `docker system prune -f --volumes`
+2. **Сохранение .env файла**: Автоматическое резервное копирование существующего .env
+3. **Обновление кода**: Git fetch и reset или клонирование репозитория
+4. **Восстановление .env файла**: Автоматическое восстановление сохраненного .env
+5. **Сборка новых образов**: `docker-compose build --no-cache --pull`
+6. **Запуск сервисов**: `docker-compose up -d`
+7. **Проверка статуса**: Вывод статуса всех контейнеров
+8. **Очистка ресурсов**: `docker system prune -f --volumes`
 
 > **💡 Совет**: После первого деплоя проверьте логи: `docker-compose logs bot -f`
+> **✅ Безопасность**: `.env` файл автоматически сохраняется и восстанавливается при каждом деплое
 
 **Подробнее**: `.github/workflows/README.md`
 

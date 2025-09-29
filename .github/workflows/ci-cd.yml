@@ -177,6 +177,11 @@ jobs:
             if [ -f "docker-compose.yml" ]; then
               docker-compose down --remove-orphans || true
             fi
+            # Сохраняем .env файл если он существует
+            if [ -f ".env" ]; then
+              echo "💾 Backing up .env file..."
+              cp .env ../.env.backup
+            fi
             cd ..
             # Очищаем содержимое папки
             rm -rf "$FINAL_DIR"/* "$FINAL_DIR"/.* 2>/dev/null || true
@@ -186,6 +191,12 @@ jobs:
           mv "$TEMP_DIR"/.* "$FINAL_DIR"/ 2>/dev/null || true
           rmdir "$TEMP_DIR" || true
           cd "$FINAL_DIR"
+          
+          # Восстанавливаем .env файл если он был сохранен
+          if [ -f "../.env.backup" ]; then
+            echo "💾 Restoring .env file..."
+            mv ../.env.backup .env
+          fi
 
           echo "📦 Building new images..."
           docker-compose build --no-cache --pull
