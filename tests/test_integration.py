@@ -387,7 +387,7 @@ class TestModelValidationIntegration:
     def test_model_edge_cases(self):
         """Тест model validation with edge cases."""
         # Test with zero amounts
-        item_data = Item(name="Free Item", quantity=1, price=0, sum=0, nds=2, paymentType=4, productType=1)
+        item_data = Item(name="Free Item", quantity=Decimal("1"), price=0, sum=0, nds=2, paymentType=4, productType=1)
 
         # Should validate successfully
         assert item_data.price == 0
@@ -396,7 +396,7 @@ class TestModelValidationIntegration:
         # Test with large amounts
         large_item = Item(
             name="Expensive Item",
-            quantity=1,
+            quantity=Decimal("1"),
             price=999999999,  # Very large amount
             sum=999999999,
             nds=2,

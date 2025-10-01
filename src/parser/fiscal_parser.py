@@ -5,7 +5,7 @@
 import logging
 import time
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Dict, List, Optional
 
 from bs4 import BeautifulSoup
@@ -690,7 +690,7 @@ class FiscalParser:
                     # Создаем новый товар
                     current_item = {
                         "name": text,
-                        "quantity": 1,
+                        "quantity": Decimal("1"),
                         "price": Decimal("0"),
                         "sum": Decimal("0"),
                         "nds_type": 2,
@@ -700,9 +700,9 @@ class FiscalParser:
                 elif current_item:
                     if "text: quantity" in binding:
                         try:
-                            current_item["quantity"] = int(text)
-                        except ValueError:
-                            current_item["quantity"] = 1
+                            current_item["quantity"] = Decimal(text)
+                        except (ValueError, InvalidOperation):
+                            current_item["quantity"] = Decimal("1")
                     elif "text: unitPrice" in binding:
                         current_item["price"] = self._parse_serbian_number(text)
                     elif "text: amount" in binding:
@@ -780,7 +780,7 @@ class SerbianToRussianConverter:
         items = []
         for item_data in self.serbian_data.items:
             # Конвертируем Decimal в int (копейки)
-            quantity = int(float(item_data["quantity"]))  # 1.00 -> 1
+            quantity = Decimal(str(item_data["quantity"]))  # Сохраняем как Decimal
             price = int(float(item_data["price"]) * 100)  # 79.99 -> 7999 копеек
             sum_val = int(float(item_data["sum"]) * 100)  # 79.99 -> 7999 копеек
 
@@ -800,7 +800,7 @@ class SerbianToRussianConverter:
             total_cents = int(float(self.serbian_data.total_amount) * 100)
             item = Item(
                 name="Товары/услуги",
-                quantity=1,  # 1 товар
+                quantity=Decimal("1"),  # 1 товар
                 price=total_cents,
                 sum=total_cents,
                 nds=2,  # НДС 10%

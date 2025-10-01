@@ -151,7 +151,7 @@ def sample_russian_data():
                     "items": [
                         {
                             "name": "Test Item",
-                            "quantity": 1,
+                            "quantity": Decimal("1"),
                             "price": 18396,
                             "sum": 18396,
                             "nds": 2,

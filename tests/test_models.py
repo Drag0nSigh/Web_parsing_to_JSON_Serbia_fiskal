@@ -18,7 +18,7 @@ class TestItemWorking:
         """Тест создания валидного товара."""
         item = Item(
             name="Test Item",
-            quantity=2,
+            quantity=Decimal("2"),
             price=10000,  # 100.00 в копейках
             sum=20000,  # 200.00 в копейках
             nds=2,
@@ -26,7 +26,7 @@ class TestItemWorking:
             productType=1,
         )
         assert item.name == "Test Item"
-        assert item.quantity == 2
+        assert item.quantity == Decimal("2")
         assert item.price == 10000
         assert item.sum == 20000
 
@@ -34,7 +34,7 @@ class TestItemWorking:
         """Тест прохождения валидации суммы с корректными значениями."""
         item = Item(
             name="Valid Item",
-            quantity=3,
+            quantity=Decimal("3"),
             price=5000,
             sum=15000,  # 3 * 5000 = 15000
             nds=2,
@@ -48,7 +48,7 @@ class TestItemWorking:
         with pytest.raises(ValidationError):
             Item(
                 name="Invalid Item",
-                quantity=2,
+                quantity=Decimal("2"),
                 price=10000,
                 sum=50000,  # Неправильная сумма: должно быть 20000
                 nds=2,
@@ -160,7 +160,7 @@ class TestModelValidationWorking:
 
     def test_item_with_zero_values(self):
         """Тест товара с нулевыми значениями."""
-        item = Item(name="Free Item", quantity=1, price=0, sum=0, nds=0, paymentType=4, productType=1)
+        item = Item(name="Free Item", quantity=Decimal("1"), price=0, sum=0, nds=0, paymentType=4, productType=1)
         assert item.price == 0
         assert item.sum == 0
 
@@ -169,7 +169,7 @@ class TestModelValidationWorking:
         large_amount = 999999999  # Большая сумма в копейках
 
         item = Item(
-            name="Expensive Item", quantity=1, price=large_amount, sum=large_amount, nds=2, paymentType=4, productType=1
+            name="Expensive Item", quantity=Decimal("1"), price=large_amount, sum=large_amount, nds=2, paymentType=4, productType=1
         )
         assert item.price == large_amount
         assert item.sum == large_amount
@@ -179,7 +179,7 @@ class TestModelValidationWorking:
         # Должен проходить с небольшой разницей округления (в пределах 5 копеек)
         item = Item(
             name="Tolerance Test",
-            quantity=3,
+            quantity=Decimal("3"),
             price=3333,  # 33.33 копейки
             sum=10000,  # 100.00 копеек (3333*3=9999, разница=1 копейка)
             nds=2,
@@ -193,7 +193,7 @@ class TestModelValidationWorking:
         with pytest.raises(ValidationError):
             Item(
                 name="Tolerance Fail",
-                quantity=2,
+                quantity=Decimal("2"),
                 price=1000,  # 10.00
                 sum=5000,  # 50.00 (должно быть 20.00, разница > 5 копеек)
                 nds=2,

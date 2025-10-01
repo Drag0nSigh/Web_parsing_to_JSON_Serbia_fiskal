@@ -73,7 +73,7 @@ class Item(BaseModel):
     """Товар/услуга в чеке"""
 
     name: str = Field(..., description="Наименование товара/услуги")
-    quantity: int = Field(..., description="Количество")
+    quantity: Decimal = Field(..., description="Количество")
     price: int = Field(..., description="Цена за единицу")
     sum: int = Field(..., description="Сумма")
     nds: int = Field(..., description="Тип НДС")
