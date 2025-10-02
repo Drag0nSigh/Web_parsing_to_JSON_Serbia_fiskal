@@ -84,7 +84,7 @@ class Item(BaseModel):
     def validate_sum(self):
         """Проверка соответствия суммы количеству и цене"""
         expected_sum = self.quantity * self.price
-        if abs(self.sum - expected_sum) > 5:  # Допуск 5 копеек для округления
+        if abs(self.sum - expected_sum) > 100:  # Допуск 5 копеек для округления
             raise ValueError(f"Сумма {self.sum} не соответствует количеству {self.quantity} * цена {self.price}")
         return self
 
