@@ -72,7 +72,7 @@ class LogManager:
             return self.log_dir / filename
         return None
 
-    def setup_logging(self, log_type: str = "bot", level: int = logging.INFO) -> logging.Logger:
+    def setup_logging(self, log_type: str = "bot", level: int = logging.DEBUG) -> logging.Logger:
         """
         Настроить логирование для указанного типа
 

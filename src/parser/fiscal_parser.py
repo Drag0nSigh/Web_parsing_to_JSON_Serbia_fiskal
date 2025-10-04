@@ -33,7 +33,9 @@ from utils.log_manager import get_log_manager
 log_manager = get_log_manager()
 
 # Настраиваем логирование
-logger = log_manager.setup_logging("parser", logging.INFO)
+logger = log_manager.setup_logging("parser", logging.DEBUG)
+# Принудительно устанавливаем уровень DEBUG
+logger.setLevel(logging.DEBUG)
 
 
 class FiscalParser:
@@ -440,12 +442,17 @@ class FiscalParser:
 
     def _extract_items_by_knockout_binding(self, soup: BeautifulSoup) -> List[Dict]:
         """Поиск товаров через Knockout.js биндинги"""
+        logger.info("🔧 ТЕСТ: DEBUG сообщение работает!")
         items = []
-        seen_items = set()  # Для избежания дублирования
 
-        # Ищем элементы с data-bind="foreach: Specifications"
-        knockout_elements = soup.find_all(attrs={"data-bind": lambda x: x and "Specifications" in x})
+        # Ищем только элементы с data-bind="foreach: Specifications" (не все с Specifications)
+        knockout_elements = soup.find_all(attrs={"data-bind": lambda x: x and "foreach: Specifications" in x})
         logger.info(f"🔗 Найдено Knockout.js элементов: {len(knockout_elements)}")
+
+        # Обрабатываем только первый tbody элемент, чтобы избежать дублирования
+        if knockout_elements:
+            knockout_elements = [knockout_elements[0]]
+            logger.info(f"🔧 Обрабатываем только первый tbody элемент для избежания дублирования")
 
         for element in knockout_elements:
             logger.debug(f"  Knockout элемент: {element.name} - {element.get('data-bind')}")
@@ -458,19 +465,14 @@ class FiscalParser:
                     try:
                         item = self._parse_item_row(cells)
                         if item and item.get("name"):
-                            # Создаем уникальный ключ для товара
-                            item_key = f"{item['name']}_{item['quantity']}_{item['price']}"
-                            if item_key not in seen_items:
-                                items.append(item)
-                                seen_items.add(item_key)
-                                logger.info(f"    ✅ Товар: {item['name']}")
-                            else:
-                                logger.debug(f"    ⚠️ Дублированный товар: {item['name']}")
+                            items.append(item)
+                            logger.info(f"    ✅ Товар: {item['name']}")
                         elif item is None:
                             logger.debug(f"    ⚠️ Строка пропущена (заголовок таблицы)")
                     except Exception as e:
                         logger.error(f"    ❌ Ошибка: {e}")
 
+        logger.info(f"✅ Найдено товаров через Knockout.js: {len(items)}")
         return items
 
     def _extract_items_by_text_search(self, soup: BeautifulSoup) -> List[Dict]:
@@ -554,11 +556,11 @@ class FiscalParser:
         # Проверяем, не является ли строка заголовком таблицы
         header_keywords = ["назив", "количина", "јед. цена", "укупна цена", "основица", "пдв", "стопа"]
         first_cell = cell_texts[0].strip().lower()
-        
+
         # Если первая ячейка содержит только заголовочные слова, это заголовок
         if first_cell in header_keywords:
             return False
-            
+
         # Проверяем, что все ячейки не являются заголовочными словами
         all_header_cells = all(cell.strip().lower() in header_keywords for cell in cell_texts if cell.strip())
         if all_header_cells:
