@@ -441,7 +441,6 @@ class FiscalParser:
     def _extract_items_by_knockout_binding(self, soup: BeautifulSoup) -> List[Dict]:
         """Поиск товаров через Knockout.js биндинги"""
         items = []
-        seen_items = set()  # Для избежания дублирования
 
         # Ищем элементы с data-bind="foreach: Specifications"
         knockout_elements = soup.find_all(attrs={"data-bind": lambda x: x and "Specifications" in x})
@@ -458,14 +457,8 @@ class FiscalParser:
                     try:
                         item = self._parse_item_row(cells)
                         if item and item.get("name"):
-                            # Создаем уникальный ключ для товара
-                            item_key = f"{item['name']}_{item['quantity']}_{item['price']}"
-                            if item_key not in seen_items:
-                                items.append(item)
-                                seen_items.add(item_key)
-                                logger.info(f"    ✅ Товар: {item['name']}")
-                            else:
-                                logger.debug(f"    ⚠️ Дублированный товар: {item['name']}")
+                            items.append(item)
+                            logger.info(f"    ✅ Товар: {item['name']}")
                         elif item is None:
                             logger.debug(f"    ⚠️ Строка пропущена (заголовок таблицы)")
                     except Exception as e:
@@ -554,11 +547,11 @@ class FiscalParser:
         # Проверяем, не является ли строка заголовком таблицы
         header_keywords = ["назив", "количина", "јед. цена", "укупна цена", "основица", "пдв", "стопа"]
         first_cell = cell_texts[0].strip().lower()
-        
+
         # Если первая ячейка содержит только заголовочные слова, это заголовок
         if first_cell in header_keywords:
             return False
-            
+
         # Проверяем, что все ячейки не являются заголовочными словами
         all_header_cells = all(cell.strip().lower() in header_keywords for cell in cell_texts if cell.strip())
         if all_header_cells:
