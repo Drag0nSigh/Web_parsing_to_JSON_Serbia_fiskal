@@ -153,42 +153,42 @@ jobs:
 
           echo "👤 Current user: $(whoami)"
           echo "📁 Preparing deployment..."
-          
+
           # Создаем временную директорию для клонирования
           TEMP_DIR="/tmp/fiscal-parser-$(date +%s)"
           FINAL_DIR="/opt/fiscal-parser"
-          
+
           echo "📂 Cloning repository to temporary directory..."
           git clone https://github.com/${{ github.repository }}.git "$TEMP_DIR"
           cd "$TEMP_DIR"
           git checkout main
-          
+
           echo "🛑 Stopping existing services and backing up .env..."
           # Сначала сохраняем .env файл если он существует
           if [ -d "$FINAL_DIR" ] && [ -f "$FINAL_DIR/.env" ]; then
             echo "💾 Backing up existing .env file..."
             cp "$FINAL_DIR/.env" "/tmp/.env.backup"
           fi
-          
+
           # Останавливаем сервисы (игнорируем ошибки совместимости Docker Compose 1.29.2)
           if [ -d "$FINAL_DIR" ]; then
             cd "$FINAL_DIR"
             docker-compose down --remove-orphans 2>/dev/null || true
             cd ..
           fi
-          
+
           echo "📦 Moving new code to production directory..."
           # Очищаем содержимое папки
           if [ -d "$FINAL_DIR" ]; then
             rm -rf "$FINAL_DIR"/* "$FINAL_DIR"/.* 2>/dev/null || true
           fi
-          
+
           # Перемещаем новое содержимое
           mv "$TEMP_DIR"/* "$FINAL_DIR"/ 2>/dev/null || true
           mv "$TEMP_DIR"/.* "$FINAL_DIR"/ 2>/dev/null || true
           rmdir "$TEMP_DIR" || true
           cd "$FINAL_DIR"
-          
+
           # Восстанавливаем .env файл если он был сохранен
           if [ -f "/tmp/.env.backup" ]; then
             echo "💾 Restoring .env file..."
@@ -218,37 +218,37 @@ jobs:
             # Останавливаем и удаляем старые контейнеры
             docker stop fiscal_bot fiscal_postgres 2>/dev/null || true
             docker rm fiscal_bot fiscal_postgres 2>/dev/null || true
-            
+
             # Удаляем старые volumes нашего проекта чтобы пересоздать базу данных с правильными пользователями
-            echo "🗑️ Removing old PostgreSQL volume to recreate database..."
-            docker volume rm fiscal_postgres_data 2>/dev/null || echo "Volume fiscal_postgres_data not found or already removed"
-            
+            # echo "🗑️ Removing old PostgreSQL volume to recreate database..."
+            # docker volume rm fiscal_postgres_data 2>/dev/null || echo "Volume fiscal_postgres_data not found or already removed"
+
             # Проверяем Docker daemon и права
             echo "🔍 Checking Docker daemon status..."
             docker version || echo "Docker daemon not accessible"
             docker info | head -10 || echo "Cannot get Docker info"
-            
+
             # Проверяем .env файл
             echo "🔍 Checking .env file..."
             if [ -f .env ]; then
               echo "✅ .env file exists"
               echo "📋 Key environment variables:"
               grep -E "^(POSTGRES_|DATABASE_|BOT_TOKEN)" .env | sed 's/=.*/=***/' || echo "No key variables found"
-              
+
               # Проверяем права на .env файл
               ls -la .env
             else
               echo "❌ .env file not found!"
               exit 1
             fi
-            
+
             # Создаем сеть
             docker network create fiscal_network 2>/dev/null || true
             echo "🌐 Network fiscal_network created or already exists"
-            
+
             # Запускаем PostgreSQL с переменными из .env
             echo "🐘 Starting PostgreSQL container..."
-            
+
             # Проверяем доступность образа postgres:15
             echo "🔍 Checking if postgres:15 image exists..."
             if docker images postgres:15 --format "{{.Repository}}:{{.Tag}}" | grep -q postgres:15; then
@@ -257,7 +257,7 @@ jobs:
               echo "⚠️ postgres:15 image not found, pulling..."
               docker pull postgres:15 || echo "Failed to pull postgres:15"
             fi
-            
+
             # Пробуем запустить PostgreSQL
             echo "🚀 Attempting to start PostgreSQL container..."
             if docker run -d --name fiscal_postgres --network fiscal_network \
@@ -271,16 +271,16 @@ jobs:
               echo "🔍 Checking if container exists but failed to start..."
               docker ps -a --filter "name=fiscal_postgres" || echo "No fiscal_postgres container found"
               docker logs fiscal_postgres 2>/dev/null || echo "Container does not exist or has no logs"
-              
+
               # Пробуем альтернативный способ - без --env-file
               echo "🔄 Trying alternative PostgreSQL startup without --env-file..."
               docker rm fiscal_postgres 2>/dev/null || true
-              
+
               # Читаем переменные из .env и передаем их напрямую
               POSTGRES_DB_VAL=$(grep "^POSTGRES_DB=" .env | cut -d'=' -f2)
               POSTGRES_USER_VAL=$(grep "^POSTGRES_USER=" .env | cut -d'=' -f2)
               POSTGRES_PASSWORD_VAL=$(grep "^POSTGRES_PASSWORD=" .env | cut -d'=' -f2)
-              
+
               if docker run -d --name fiscal_postgres --network fiscal_network \
                 -e POSTGRES_DB="${POSTGRES_DB_VAL:-fiscal_data}" \
                 -e POSTGRES_USER="${POSTGRES_USER_VAL:-fiscal_user}" \
@@ -296,13 +296,13 @@ jobs:
                 exit 1
               fi
             fi
-            
+
             sleep 10  # Ждем запуска БД
-            
+
             # Проверяем что PostgreSQL запустился
             echo "🔍 Checking PostgreSQL connection..."
             docker exec fiscal_postgres pg_isready -U ${POSTGRES_USER:-fiscal_user} -d ${POSTGRES_DB:-fiscal_data} || echo "PostgreSQL not ready yet"
-            
+
             # Собираем образ бота
             echo "🔨 Building bot image..."
             if docker build -t fiscal_bot -f src/Dockerfile .; then
@@ -311,12 +311,12 @@ jobs:
               echo "❌ Failed to build bot image"
               exit 1
             fi
-            
+
             # Проверяем статус PostgreSQL контейнера
             echo "🔍 Checking PostgreSQL container status..."
             if docker ps --filter "name=fiscal_postgres" --format "{{.Status}}" | grep -q "Up"; then
               echo "✅ PostgreSQL container is running"
-              
+
               # Получаем IP адрес PostgreSQL для подключения
               echo "🔍 Getting PostgreSQL IP address..."
               POSTGRES_IP=$(docker inspect fiscal_postgres --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
@@ -324,7 +324,7 @@ jobs:
                 echo "✅ PostgreSQL IP: $POSTGRES_IP"
               else
                 echo "⚠️ Cannot get PostgreSQL IP, trying alternative approaches..."
-                
+
                 # Пробуем получить IP через docker network inspect
                 echo "🔍 Trying to get IP via network inspection..."
                 NETWORK_ID=$(docker inspect fiscal_postgres --format='{{range $key, $value := .NetworkSettings.Networks}}{{$key}}{{end}}' 2>/dev/null)
@@ -350,7 +350,7 @@ jobs:
               echo "❌ Cannot start bot without PostgreSQL"
               exit 1
             fi
-            
+
             # Запускаем бота с правильными переменными окружения из .env
             echo "🤖 Starting bot container..."
             if docker run -d --name fiscal_bot --network fiscal_network \
@@ -366,14 +366,14 @@ jobs:
               echo "❌ Failed to start bot container with network, trying localhost connection..."
               echo "🔍 Checking if container exists but failed to start..."
               docker logs fiscal_bot 2>/dev/null || echo "Container does not exist"
-              
+
               # Пробуем запустить без сети, через localhost
               echo "🔄 Trying to start bot without network (localhost connection)..."
               docker rm fiscal_bot 2>/dev/null || true
-              
+
               # Получаем порт PostgreSQL
               POSTGRES_PORT_VAL=$(grep "^POSTGRES_PORT=" .env | cut -d'=' -f2 || echo "5432")
-              
+
               if docker run -d --name fiscal_bot \
                 --env-file .env \
                 -e POSTGRES_HOST=host.docker.internal \
@@ -391,24 +391,24 @@ jobs:
                 exit 1
               fi
             fi
-            
+
             # Проверяем подключение бота к PostgreSQL
             sleep 5
             echo "🔍 Testing connection from bot to PostgreSQL..."
             docker exec fiscal_bot ping -c 1 postgres || echo "Cannot ping postgres from bot"
-            
+
             # Проверяем сетевую конфигурацию
             echo "🔍 Network configuration check..."
             echo "📋 PostgreSQL container networks:"
             docker inspect fiscal_postgres --format='{{range $key, $value := .NetworkSettings.Networks}}{{$key}}: {{$value.IPAddress}}{{end}}' 2>/dev/null || echo "Cannot inspect PostgreSQL network"
-            
+
             echo "📋 Bot container networks:"
             docker inspect fiscal_bot --format='{{range $key, $value := .NetworkSettings.Networks}}{{$key}}: {{$value.IPAddress}}{{end}}' 2>/dev/null || echo "Cannot inspect Bot network"
-            
+
             # Проверяем DNS resolution внутри контейнера бота
             echo "🔍 DNS resolution test from bot container..."
             docker exec fiscal_bot nslookup postgres || echo "DNS resolution failed"
-            
+
             # Проверяем доступность PostgreSQL по IP
             echo "🔍 Trying to connect to PostgreSQL by IP..."
             POSTGRES_IP=$(docker inspect fiscal_postgres --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' 2>/dev/null)
@@ -433,7 +433,7 @@ jobs:
           echo "🔍 Checking container networks..."
           docker inspect fiscal_postgres --format='{{range .NetworkSettings.Networks}}{{.NetworkID}} {{end}}' 2>/dev/null || echo "PostgreSQL container not found"
           docker inspect fiscal_bot --format='{{range .NetworkSettings.Networks}}{{.NetworkID}} {{end}}' 2>/dev/null || echo "Bot container not found"
-          
+
           echo "🔍 Checking if containers actually started..."
           if docker ps --filter "name=fiscal_postgres" --format "table {{.Names}}\t{{.Status}}" | grep -q fiscal_postgres; then
             echo "✅ PostgreSQL container is running"
@@ -442,7 +442,7 @@ jobs:
             echo "🔍 Checking PostgreSQL container logs if it exists..."
             docker logs fiscal_postgres 2>/dev/null || echo "PostgreSQL container does not exist"
           fi
-          
+
           if docker ps --filter "name=fiscal_bot" --format "table {{.Names}}\t{{.Status}}" | grep -q fiscal_bot; then
             echo "✅ Bot container is running"
           else
