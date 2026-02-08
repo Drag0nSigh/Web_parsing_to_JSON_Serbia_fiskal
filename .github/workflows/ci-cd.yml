@@ -140,15 +140,37 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Setup SSH
+      env:
+        DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        DEPLOY_SSH_KEY_PASSPHRASE: ${{ secrets.DEPLOY_SSH_KEY_PASSPHRASE }}
+        DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
       run: |
-        mkdir -p ~/.ssh/
-        echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_rsa
+        set -e
+        mkdir -p ~/.ssh
+        chmod 700 ~/.ssh
+        echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+        # Ключ с паролем: добавляем в agent (в репозитории — секрет DEPLOY_SSH_KEY_PASSPHRASE)
+        if [ -n "$DEPLOY_SSH_KEY_PASSPHRASE" ]; then
+          eval "$(ssh-agent -s)"
+          echo '#!/bin/sh' > /tmp/askpass.sh
+          echo 'echo "$DEPLOY_SSH_KEY_PASSPHRASE"' >> /tmp/askpass.sh
+          chmod +x /tmp/askpass.sh
+          export SSH_ASKPASS=/tmp/askpass.sh
+          export DISPLAY=:0
+          ssh-add ~/.ssh/id_rsa
+        fi
+        ssh-keyscan -H "$DEPLOY_HOST" -p "$DEPLOY_SSH_PORT" >> ~/.ssh/known_hosts
 
     - name: Deploy via SSH
+      env:
+        DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+        GITHUB_REPO: ${{ github.repository }}
       run: |
-        ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'EOF'
+        ssh -o ConnectTimeout=15 -o StrictHostKeyChecking=yes "$DEPLOY_USER@$DEPLOY_HOST" -p "$DEPLOY_SSH_PORT" "GITHUB_REPO=$GITHUB_REPO bash -s" << 'EOF'
           set -e  # Остановить выполнение при ошибке
 
           echo "👤 Current user: $(whoami)"
@@ -159,7 +181,7 @@ jobs:
           FINAL_DIR="/opt/fiscal-parser"
 
           echo "📂 Cloning repository to temporary directory..."
-          git clone https://github.com/${{ github.repository }}.git "$TEMP_DIR"
+          git clone "https://github.com/${GITHUB_REPO}.git" "$TEMP_DIR"
           cd "$TEMP_DIR"
           git checkout main
 
