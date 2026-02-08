@@ -38,7 +38,7 @@ services:
       # Настройки Telegram бота
       TG_TOKEN: ${TG_TOKEN}
       ADMIN_ID: ${ADMIN_ID}
-      
+
       # Настройки Python
       PYTHONPATH: /app/src
       PYTHONUNBUFFERED: 1

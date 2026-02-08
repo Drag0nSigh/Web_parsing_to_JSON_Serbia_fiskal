@@ -397,67 +397,67 @@ docker-compose restart postgres
    # Проблема: "sudo: a terminal is required to read the password"
    # Решение: Пользователь fiskal_serbia_deploy НЕ должен быть в sudo
    sudo usermod -r fiskal_serbia_deploy sudo  # Удалить из sudo
-   
+
    # Проблема: "rm: cannot remove '/opt/fiscal-parser': Permission denied"
    # Решение: Исправить права доступа на папку
    sudo chown -R fiskal_serbia_deploy:fiskal_serbia_deploy /opt/fiscal-parser
    sudo chmod -R 755 /opt/fiscal-parser
-   
+
    # Проблема: "Can't find a suitable configuration file"
    # Решение: Проверить права на /opt/fiscal-parser
    ls -la /opt/fiscal-parser/
-   
+
    # Проблема: Docker permission denied
    # Решение: Пользователь должен быть в группе docker
    sudo usermod -aG docker fiskal_serbia_deploy
    newgrp docker  # Применить группу
-   
+
    # Проблема: "The POSTGRES_DB variable is not set"
    # Решение: .env файл должен быть создан один раз на сервере
    # См. раздел "4.1. Создание .env файла на сервере" выше
-   
+
    # Проблема: "HTTPConnection.request() got an unexpected keyword argument 'chunked'"
    # Причина: Docker Compose 1.29.2 несовместим с новым Docker API (urllib3 конфликт)
    # Решение: Запуск через docker run напрямую с переменными из .env
-   
+
    # Остановить старые контейнеры
    docker stop fiscal_bot fiscal_postgres 2>/dev/null || true
    docker rm fiscal_bot fiscal_postgres 2>/dev/null || true
-   
+
    # Создать сеть и запустить сервисы
    docker network create fiscal_network 2>/dev/null || true
    docker run -d --name fiscal_postgres --network fiscal_network \
      --env-file .env -p 5432:5432 postgres:15
    sleep 10  # Ждем запуска БД
-   
+
    # Проверить подключение к PostgreSQL
    docker exec fiscal_postgres pg_isready -U fiscal_user -d fiscal_data
-   
+
    # Собрать и запустить бота
    docker build -t fiscal_bot -f src/Dockerfile .
    docker run -d --name fiscal_bot --network fiscal_network \
      --env-file .env \
      -e POSTGRES_HOST=postgres \
      -v ./log:/app/log fiscal_bot
-   
+
    # Проверить подключение между контейнерами
    docker exec fiscal_bot ping -c 1 postgres
-   
+
    # Если бот не может найти postgres (DNS проблема):
-   
+
    # 1. Проверить статус PostgreSQL контейнера
    docker ps --filter "name=fiscal_postgres"
    docker logs fiscal_postgres
-   
+
    # 2. Получить IP адрес PostgreSQL (разные способы)
    POSTGRES_IP=$(docker inspect fiscal_postgres --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}')
    echo "PostgreSQL IP (method 1): $POSTGRES_IP"
-   
+
    # Альтернативный способ получения IP
    NETWORK_ID=$(docker inspect fiscal_postgres --format='{{range $key, $value := .NetworkSettings.Networks}}{{$key}}{{end}}')
    POSTGRES_IP=$(docker network inspect "$NETWORK_ID" --format='{{range .Containers}}{{if eq .Name "fiscal_postgres"}}{{.IPv4Address}}{{end}}{{end}}' | cut -d'/' -f1)
    echo "PostgreSQL IP (method 2): $POSTGRES_IP"
-   
+
    # 3. Если IP пустой, попробовать подключение через localhost
    if [ -z "$POSTGRES_IP" ] || [ "$POSTGRES_IP" = "<no value>" ]; then
      echo "⚠️ Cannot get PostgreSQL IP, trying localhost connection..."
@@ -476,23 +476,23 @@ docker-compose restart postgres
        -e POSTGRES_HOST="$POSTGRES_IP" \
        -v ./log:/app/log fiscal_bot
    fi
-   
+
    # Если PostgreSQL не запускается, попробовать простую команду:
    docker run --rm -d --name test_postgres \
      -e POSTGRES_DB=test -e POSTGRES_USER=test -e POSTGRES_PASSWORD=test \
      -p 5433:5432 postgres:15
-   
+
    # Проверить что контейнер запустился
    docker ps | grep test_postgres
-   
+
    # Если ошибка "Role TG_BOT does not exist" - нужно пересоздать базу данных:
    # 1. Остановить контейнеры
    docker stop fiscal_bot fiscal_postgres 2>/dev/null || true
    docker rm fiscal_bot fiscal_postgres 2>/dev/null || true
-   
+
    # 2. Удалить старый volume с базой данных
    docker volume rm fiscal_postgres_data 2>/dev/null || echo "Volume not found"
-   
+
    # 3. Запустить PostgreSQL заново (он создаст базу с правильными пользователями)
    docker network create fiscal_network 2>/dev/null || true
    docker run -d --name fiscal_postgres --network fiscal_network \
@@ -500,10 +500,10 @@ docker-compose restart postgres
      -p 5432:5432 \
      -v fiscal_postgres_data:/var/lib/postgresql/data \
      postgres:15
-   
+
    # 4. Подождать инициализации (30 секунд)
    sleep 30
-   
+
    # 5. Проверить что пользователь создался
    docker exec fiscal_postgres psql -U postgres -c "\du"
    ```

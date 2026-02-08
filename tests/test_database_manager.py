@@ -30,6 +30,7 @@ class TestDatabaseManager:
 
         # Мокируем os.getenv для возврата тестовых значений
         with patch("os.getenv") as mock_getenv:
+
             def getenv_side_effect(key, default=None):
                 env_vars = {
                     "DATABASE_URL": None,
@@ -40,7 +41,7 @@ class TestDatabaseManager:
                     "POSTGRES_DB": "test_db",
                 }
                 return env_vars.get(key, default)
-            
+
             mock_getenv.side_effect = getenv_side_effect
 
             dm = DatabaseManager()

@@ -1,3 +1,5 @@
+# Перед коммитом добавляйте в stage все изменённые файлы (git add …),
+# иначе pre-commit при наличии unstaged изменений делает stash, хуки правят файлы — при восстановлении stash возможен конфликт.
 fail_fast: false
 exclude: ^.*\b(migrations)\b.*$
 repos:

@@ -196,7 +196,13 @@ class TestModelValidationWorking:
         large_amount = 999999999  # Большая сумма в копейках
 
         item = Item(
-            name="Expensive Item", quantity=Decimal("1"), price=large_amount, sum=large_amount, nds=2, paymentType=4, productType=1
+            name="Expensive Item",
+            quantity=Decimal("1"),
+            price=large_amount,
+            sum=large_amount,
+            nds=2,
+            paymentType=4,
+            productType=1,
         )
         assert item.price == large_amount
         assert item.sum == large_amount
