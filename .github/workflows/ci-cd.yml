@@ -149,8 +149,9 @@ jobs:
         set -e
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
-        # Убираем \r (CRLF), иначе libcrypto выдаёт "error in libcrypto" при загрузке ключа
-        printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+        # Ключ в секрете — в Base64 (избегаем "error in libcrypto" из-за многострочного ключа в GitHub Secrets).
+        # Как получить: cat ~/.ssh/id_rsa | base64 -w 0  (Linux) или base64 -i ~/.ssh/id_rsa  (Mac)
+        echo "$DEPLOY_SSH_KEY" | base64 -d > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         # Ключ с паролем: добавляем в agent (в репозитории — секрет DEPLOY_SSH_KEY_PASSPHRASE)
         if [ -n "$DEPLOY_SSH_KEY_PASSPHRASE" ]; then
