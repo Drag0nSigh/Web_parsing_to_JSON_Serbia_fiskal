@@ -149,7 +149,8 @@ jobs:
         set -e
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
-        echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_rsa
+        # Убираем \r (CRLF), иначе libcrypto выдаёт "error in libcrypto" при загрузке ключа
+        printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
         # Ключ с паролем: добавляем в agent (в репозитории — секрет DEPLOY_SSH_KEY_PASSPHRASE)
         if [ -n "$DEPLOY_SSH_KEY_PASSPHRASE" ]; then
