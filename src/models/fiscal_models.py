@@ -5,7 +5,7 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import ClassVar, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -80,12 +80,23 @@ class Item(BaseModel):
     paymentType: int = Field(..., description="Тип оплаты")
     productType: int = Field(..., description="Тип товара")
 
+    # Допустимая относительная погрешность суммы (6%) — из-за округления количества в электронном чеке
+    SUM_TOLERANCE_PERCENT: ClassVar[float] = 0.06
+
     @model_validator(mode="after")
     def validate_sum(self):
-        """Проверка соответствия суммы количеству и цене"""
-        expected_sum = self.quantity * self.price
-        if abs(self.sum - expected_sum) > 100:  # Допуск 5 копеек для округления
-            raise ValueError(f"Сумма {self.sum} не соответствует количеству {self.quantity} * цена {self.price}")
+        """Проверка соответствия суммы количеству и цене с допуском до 6% (округление в электронном чеке)."""
+        expected_sum = float(self.quantity) * self.price
+        if expected_sum == 0:
+            if self.sum != 0:
+                raise ValueError(f"Сумма {self.sum} не соответствует количеству {self.quantity} * цена {self.price}")
+            return self
+        relative_error = abs(self.sum - expected_sum) / expected_sum
+        if relative_error > self.SUM_TOLERANCE_PERCENT:
+            raise ValueError(
+                f"Сумма {self.sum} не соответствует количеству {self.quantity} * цена {self.price} "
+                f"(погрешность {relative_error:.2%} превышает допуск {self.SUM_TOLERANCE_PERCENT:.0%})"
+            )
         return self
 
 

@@ -56,6 +56,33 @@ class TestItemWorking:
                 productType=1,
             )
 
+    def test_item_sum_tolerance_6_percent(self):
+        """Сумма проходит при погрешности из-за округления количества (например 1.157→1.16)."""
+        # Реальный кейс: количество 1.157, в электронном чеке 1.16; сумма в чеке 86774
+        item = Item(
+            name="Pileci file",
+            quantity=Decimal("1.16"),
+            price=74999,
+            sum=86774,
+            nds=2,
+            paymentType=4,
+            productType=1,
+        )
+        assert item.sum == 86774
+
+    def test_item_sum_validation_fails_over_6_percent(self):
+        """Валидация не проходит при погрешности больше 6%."""
+        with pytest.raises(ValidationError):
+            Item(
+                name="Bad Item",
+                quantity=Decimal("1"),
+                price=10000,
+                sum=12000,  # 20% ошибка
+                nds=2,
+                paymentType=4,
+                productType=1,
+            )
+
 
 class TestSerbianFiscalDataWorking:
     """Тесты для модели SerbianFiscalData - рабочая версия."""
