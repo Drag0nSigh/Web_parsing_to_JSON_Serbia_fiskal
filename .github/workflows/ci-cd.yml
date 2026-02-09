@@ -121,7 +121,9 @@ jobs:
 
     - name: Run tests
       run: |
+        # Отключаем pytest-postgresql (требует pkg_resources); в CI используем сервис PostgreSQL из workflow
         pytest tests/ \
+          -p no:pytest_postgresql \
           --cov=src \
           --cov-report=term-missing \
           --cov-fail-under=80 \
