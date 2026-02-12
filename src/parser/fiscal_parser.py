@@ -781,10 +781,17 @@ class SerbianToRussianConverter:
         # Создаем товары на основе извлеченных данных
         items = []
         for item_data in self.serbian_data.items:
-            # Конвертируем Decimal в int (копейки)
+            # Конвертируем в int (копейки). Значения из HTML приходят в динарах (93.99);
+            # если уже пришли целые (копейки) — не умножаем на 100 повторно.
             quantity = Decimal(str(item_data["quantity"]))  # Сохраняем как Decimal
-            price = int(float(item_data["price"]) * 100)  # 79.99 -> 7999 копеек
-            sum_val = int(float(item_data["sum"]) * 100)  # 79.99 -> 7999 копеек
+            raw_price = item_data["price"]
+            raw_sum = item_data["sum"]
+            if isinstance(raw_price, int) and isinstance(raw_sum, int):
+                price = raw_price
+                sum_val = raw_sum
+            else:
+                price = int(float(raw_price) * 100)  # 79.99 -> 7999 копеек
+                sum_val = int(float(raw_sum) * 100)  # 79.99 -> 7999 копеек
 
             item = Item(
                 name=item_data["name"],
