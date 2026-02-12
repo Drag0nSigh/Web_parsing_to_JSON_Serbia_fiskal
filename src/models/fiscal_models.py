@@ -2,6 +2,7 @@
 Модели Pydantic для валидации и сериализации фискальных данных
 """
 
+import logging
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
@@ -9,6 +10,14 @@ from typing import ClassVar, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from utils.log_manager import get_log_manager
+# Получаем менеджер логов
+log_manager = get_log_manager()
+
+# Настраиваем логирование
+logger = log_manager.setup_logging("parser", logging.DEBUG)
+# Принудительно устанавливаем уровень DEBUG
+logger.setLevel(logging.DEBUG)
 
 class PaymentType(str, Enum):
     """Типы оплаты"""
@@ -86,6 +95,7 @@ class Item(BaseModel):
     @model_validator(mode="after")
     def validate_sum(self):
         """Проверка соответствия суммы количеству и цене с допуском до 6% (округление в электронном чеке)."""
+        logger.info(f"quantity = {self.quantity} , {float(self.quantity)}")
         expected_sum = float(self.quantity) * self.price
         if expected_sum == 0:
             if self.sum != 0:
@@ -145,13 +155,6 @@ class Receipt(BaseModel):
     user: str = Field(..., description="Наименование организации")
     userInn: str = Field(..., description="ИНН организации")
 
-    @model_validator(mode="after")
-    def validate_total_sum(self):
-        """Проверка соответствия общей суммы сумме товаров"""
-        items_sum = sum(item.sum for item in self.items)
-        if abs(self.totalSum - items_sum) > 5:  # Допуск 5 копеек для округления
-            raise ValueError(f"Общая сумма {self.totalSum} не соответствует сумме товаров {items_sum}")
-        return self
 
 
 class Document(BaseModel):

@@ -632,22 +632,41 @@ class FiscalParser:
         }
 
     def _parse_serbian_number(self, text: str) -> Decimal:
-        """Парсинг сербских чисел (1.839,96 -> 1839.96)"""
+        """Парсинг сербских и смешанных чисел.
+        Сербский: 1.359,98 (точка — тысячи, запятая — десятичная).
+        С точкой как десятичной: 93.99, 1.00 — точку не убирать.
+        US: 1,359.98 (запятая — тысячи, точка — десятичная).
+        """
         if not text:
             return Decimal("0")
 
-        # Убираем все пробелы и невидимые символы
-        text = text.strip()
-
-        # Убираем точки (разделители тысяч) и заменяем запятую на точку
-        cleaned_text = text.replace(".", "").replace(",", ".")
-
-        # Убираем все нецифровые символы кроме точки и минуса
         import re
+
+        text = text.strip()
+        text = re.sub(r"\s+", "", text)
+
+        has_dot = "." in text
+        has_comma = "," in text
+
+        if has_comma and has_dot:
+            # Оба разделителя: последний — десятичный
+            last_dot = text.rfind(".")
+            last_comma = text.rfind(",")
+            if last_comma > last_dot:
+                # Сербский: 1.359,98
+                cleaned_text = text.replace(".", "").replace(",", ".")
+            else:
+                # US: 1,359.98
+                cleaned_text = text.replace(",", "")
+        elif has_dot and not has_comma:
+            # Только точка — десятичный разделитель (93.99, 1.00)
+            cleaned_text = text
+        else:
+            # Только запятая (93,99) или без разделителя
+            cleaned_text = text.replace(",", ".")
 
         cleaned_text = re.sub(r"[^\d\.\-]", "", cleaned_text)
 
-        # Проверяем, что осталось что-то для парсинга
         if not cleaned_text or cleaned_text in ["-", "."]:
             return Decimal("0")
 
@@ -778,20 +797,21 @@ class SerbianToRussianConverter:
         logger.info(f"🔧 Генерируем ID: {random_id}")
         logger.info(f"🔧 Дата создания: {self.serbian_data.sdc_date_time}")
 
+
         # Создаем товары на основе извлеченных данных
         items = []
         for item_data in self.serbian_data.items:
-            # Конвертируем в int (копейки). Значения из HTML приходят в динарах (93.99);
-            # если уже пришли целые (копейки) — не умножаем на 100 повторно.
-            quantity = Decimal(str(item_data["quantity"]))  # Сохраняем как Decimal
+            # Количество как Decimal; цена и сумма — в копейки (динры * 100).
+            # Если уже пришли целые (копейки) — не умножаем на 100 повторно.
+            quantity = Decimal(str(item_data["quantity"]))
             raw_price = item_data["price"]
             raw_sum = item_data["sum"]
             if isinstance(raw_price, int) and isinstance(raw_sum, int):
                 price = raw_price
                 sum_val = raw_sum
             else:
-                price = int(float(raw_price) * 100)  # 79.99 -> 7999 копеек
-                sum_val = int(float(raw_sum) * 100)  # 79.99 -> 7999 копеек
+                price = int(float(raw_price) * 100)
+                sum_val = int(float(raw_sum) * 100)
 
             item = Item(
                 name=item_data["name"],
