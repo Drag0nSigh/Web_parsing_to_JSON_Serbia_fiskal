@@ -334,12 +334,30 @@ class FiscalParser:
     def _extract_sdc_date_time(self, soup: BeautifulSoup) -> datetime:
         """Извлечение времени ПФР"""
         date_element = soup.find("span", {"id": "sdcDateTimeLabel"})
+        logger.info(f'sdcDateTimeLabel = {date_element}')
         if date_element:
             date_text = date_element.get_text(strip=True)
-            try:
-                return datetime.strptime(date_text, "%d.%m.%Y. %H:%M:%S")
-            except ValueError:
-                pass
+            logger.info(f'date_text = {date_text}')
+            
+            # Список форматов для попытки парсинга
+            date_formats = [
+                "%m/%d/%Y %I:%M:%S %p",  # Американский формат: 3/8/2026 1:08:19 PM
+                "%d.%m.%Y. %H:%M:%S",     # Европейский формат: 08.03.2026. 13:08:19
+                "%d.%m.%Y %H:%M:%S",      # Европейский формат без точки: 08.03.2026 13:08:19
+                "%Y-%m-%d %H:%M:%S",      # ISO формат: 2026-03-08 13:08:19
+            ]
+            
+            for date_format in date_formats:
+                try:
+                    parsed_date = datetime.strptime(date_text, date_format)
+                    logger.info(f'ИТОГОВАЯ ДАТА = {parsed_date} (формат: {date_format})')
+                    return parsed_date
+                except ValueError:
+                    continue
+            
+            logger.warning(f'Не удалось распарсить дату "{date_text}" ни одним из форматов')
+        
+        logger.info('Дата не обнаружена')
         return datetime.now()
 
     def _extract_buyer_id(self, soup: BeautifulSoup) -> Optional[str]:
