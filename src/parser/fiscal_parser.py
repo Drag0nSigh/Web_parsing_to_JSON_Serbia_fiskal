@@ -672,9 +672,18 @@ class FiscalParser:
             last_comma = text.rfind(",")
             if last_comma > last_dot:
                 # Сербский: 1.359,98
+                # Проверка: в сербском формате должна быть только одна запятая (десятичный разделитель)
+                if text.count(",") > 1:
+                    logger.warning(f"⚠️ Невалидный сербский формат (множественные запятые): '{text}'")
+                    return Decimal("0")
                 cleaned_text = text.replace(".", "").replace(",", ".")
             else:
                 # US: 1,359.98
+                # Проверка: в US формате должна быть только одна точка (десятичный разделитель)
+                # и запятые только для разделения тысяч
+                if text.count(",") > 1 or text.count(".") > 1:
+                    logger.warning(f"⚠️ Невалидный US формат (множественные разделители): '{text}'")
+                    return Decimal("0")
                 cleaned_text = text.replace(",", "")
         elif has_dot and not has_comma:
             # Только точка — десятичный разделитель (93.99, 1.00)
@@ -686,6 +695,11 @@ class FiscalParser:
         cleaned_text = re.sub(r"[^\d\.\-]", "", cleaned_text)
 
         if not cleaned_text or cleaned_text in ["-", "."]:
+            return Decimal("0")
+
+        # Проверка на валидность формата: должна быть максимум одна точка (десятичный разделитель)
+        if cleaned_text.count(".") > 1:
+            logger.warning(f"⚠️ Невалидный формат числа (множественные точки): '{text}' -> '{cleaned_text}'")
             return Decimal("0")
 
         try:
