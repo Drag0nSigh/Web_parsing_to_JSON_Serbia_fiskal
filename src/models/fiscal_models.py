@@ -8,7 +8,7 @@ from decimal import Decimal
 from enum import Enum
 from typing import ClassVar, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, model_validator
 
 from utils.log_manager import get_log_manager
 # Получаем менеджер логов
@@ -91,6 +91,11 @@ class Item(BaseModel):
 
     # Допустимая относительная погрешность суммы (6%) — из-за округления количества в электронном чеке
     SUM_TOLERANCE_PERCENT: ClassVar[float] = 0.06
+
+    @field_serializer('quantity', when_used='json')
+    def serialize_quantity(self, value: Decimal) -> float:
+        """Сериализация quantity в float при JSON-сериализации"""
+        return float(value)
 
     @model_validator(mode="after")
     def validate_sum(self):
