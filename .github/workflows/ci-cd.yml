@@ -205,15 +205,12 @@ jobs:
           fi
 
           echo "📦 Moving new code to production directory..."
-          # Очищаем содержимое папки
-          if [ -d "$FINAL_DIR" ]; then
-            rm -rf "$FINAL_DIR"/* "$FINAL_DIR"/.* 2>/dev/null || true
-          fi
-
-          # Перемещаем новое содержимое
-          mv "$TEMP_DIR"/* "$FINAL_DIR"/ 2>/dev/null || true
-          mv "$TEMP_DIR"/.* "$FINAL_DIR"/ 2>/dev/null || true
-          rmdir "$TEMP_DIR" || true
+          # Первый деплой: FINAL_DIR могла не существовать — mv в никуда молча ломался (|| true)
+          # .env уже в /tmp/.env.backup; каталог пересоздаём целиком
+          rm -rf "$FINAL_DIR"
+          mkdir -p "$FINAL_DIR"
+          cp -a "$TEMP_DIR"/. "$FINAL_DIR"/
+          rm -rf "$TEMP_DIR"
           cd "$FINAL_DIR"
 
           # Восстанавливаем .env файл если он был сохранен
