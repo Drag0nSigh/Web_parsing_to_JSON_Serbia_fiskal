@@ -141,19 +141,21 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup SSH
+    - name: Deploy via SSH
       env:
         DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         DEPLOY_SSH_KEY_PASSPHRASE: ${{ secrets.DEPLOY_SSH_KEY_PASSPHRASE }}
+        DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
         DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
+        GITHUB_REPO: ${{ github.repository }}
       run: |
         set -e
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
-        printf '%s' "$DEPLOY_SSH_KEY" > ~/.ssh/id_rsa
+        printf '%s\n' "$DEPLOY_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
         chmod 600 ~/.ssh/id_rsa
-        # Ключ с паролем: добавляем в agent (в репозитории — секрет DEPLOY_SSH_KEY_PASSPHRASE)
+        # ssh-agent не переживает между шагами: ключ с паролем и ssh должны быть в одном run
         if [ -n "$DEPLOY_SSH_KEY_PASSPHRASE" ]; then
           eval "$(ssh-agent -s)"
           echo '#!/bin/sh' > /tmp/askpass.sh
@@ -164,15 +166,16 @@ jobs:
           ssh-add ~/.ssh/id_rsa
         fi
         ssh-keyscan -H "$DEPLOY_HOST" -p "$DEPLOY_SSH_PORT" >> ~/.ssh/known_hosts
-
-    - name: Deploy via SSH
-      env:
-        DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-        DEPLOY_SSH_PORT: ${{ secrets.DEPLOY_SSH_PORT || '22' }}
-        GITHUB_REPO: ${{ github.repository }}
-      run: |
-        ssh -i ~/.ssh/id_rsa -o ConnectTimeout=15 -o StrictHostKeyChecking=yes -p "$DEPLOY_SSH_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "GITHUB_REPO=$GITHUB_REPO bash -s" << 'EOF'
+        # Без sk-* (FIDO): иначе старый sshd на сервере пишет "no matching host key type"
+        SSH_OPTS=(
+          -i ~/.ssh/id_rsa
+          -p "$DEPLOY_SSH_PORT"
+          -o ConnectTimeout=15
+          -o StrictHostKeyChecking=yes
+          -o HostKeyAlgorithms=ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,rsa-sha2-512,rsa-sha2-256
+          -o PubkeyAcceptedAlgorithms=ssh-ed25519,rsa-sha2-512,rsa-sha2-256,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521
+        )
+        ssh "${SSH_OPTS[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "GITHUB_REPO=$GITHUB_REPO bash -s" << 'EOF'
           set -e  # Остановить выполнение при ошибке
 
           echo "👤 Current user: $(whoami)"
