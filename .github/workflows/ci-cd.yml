@@ -152,7 +152,7 @@ jobs:
         mkdir -p ~/.ssh
         chmod 700 ~/.ssh
         # Поддержка двух форматов секрета DEPLOY_SSH_KEY; всегда убираем \r (CRLF) — иначе "error in libcrypto"
-        if echo "$DEPLOY_SSH_KEY" | head -c 30 | tr -d '\r' | grep -q '-----BEGIN'; then
+        if echo "$DEPLOY_SSH_KEY" | head -c 30 | tr -d '\r' | grep -q -- '-----BEGIN'; then
           echo "$DEPLOY_SSH_KEY" | tr -d '\r' > ~/.ssh/id_rsa
         else
           echo "$DEPLOY_SSH_KEY" | tr -d '\r\n' | base64 -d | tr -d '\r' > ~/.ssh/id_rsa
