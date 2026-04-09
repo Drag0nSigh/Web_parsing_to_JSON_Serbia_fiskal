@@ -170,6 +170,7 @@ class FiscalParser:
                 requested_by="",
                 invoice_type="",
                 transaction_type="",
+                payment_method="card",
                 status="",
                 items=[],
             )
@@ -262,6 +263,7 @@ class FiscalParser:
             "requested_by": self._extract_requested_by(soup),
             "invoice_type": self._extract_invoice_type(soup),
             "transaction_type": self._extract_transaction_type(soup),
+            "payment_method": self._extract_payment_method(soup),
             "status": self._extract_status(soup),
             "items": self._extract_items_from_table(soup),
         }
@@ -380,6 +382,39 @@ class FiscalParser:
         """Извлечение типа транзакции"""
         type_element = soup.find("span", {"id": "transactionTypeId"})
         return type_element.get_text(strip=True) if type_element else ""
+
+    def _extract_payment_method(self, soup: BeautifulSoup) -> str:
+        """Извлечение способа оплаты (cash/card)"""
+        payment_method = ""
+
+        # Основной путь: структура таблицы "Payment Method:" -> значение в соседней ячейке.
+        label_element = soup.find("strong", string=lambda text: text and "Payment Method:" in text)
+        if label_element:
+            label_td = label_element.find_parent("td")
+            if label_td:
+                value_td = label_td.find_next_sibling("td")
+                if value_td:
+                    payment_method = value_td.get_text(strip=True)
+
+        # Fallback: поиск по полному тексту страницы.
+        if not payment_method:
+            import re
+
+            page_text = soup.get_text(" ", strip=True)
+            match = re.search(r"Payment Method:\s*(Cash|Card)", page_text, re.IGNORECASE)
+            if match:
+                payment_method = match.group(1)
+
+        normalized = payment_method.strip().lower() if payment_method else ""
+        if normalized == "cash":
+            logger.info("💳 Способ оплаты: cash")
+            return "cash"
+        if normalized == "card":
+            logger.info("💳 Способ оплаты: card")
+            return "card"
+
+        logger.warning("⚠️ Способ оплаты не распознан, используем fallback: card")
+        return "card"
 
     def _extract_status(self, soup: BeautifulSoup) -> str:
         """Извлечение статуса чека"""
@@ -872,6 +907,8 @@ class SerbianToRussianConverter:
 
         # Конвертируем общую сумму в копейки
         total_cents = int(float(self.serbian_data.total_amount) * 100)
+        payment_method = (self.serbian_data.payment_method or "").strip().lower()
+        is_cash = payment_method == "cash"
 
         # Рассчитываем НДС по товарам
         nds_amounts = {}
@@ -900,6 +937,7 @@ class SerbianToRussianConverter:
 
         # Создаем чек
         receipt = Receipt(
+            cashTotalSum=total_cents if is_cash else 0,
             code=3,  # Код документа
             dateTime=self.serbian_data.sdc_date_time.strftime("%Y-%m-%dT%H:%M:%S"),
             fiscalDocumentNumber=self.serbian_data.total_counter,
@@ -908,7 +946,7 @@ class SerbianToRussianConverter:
             fnsUrl="www.nalog.gov.rs",  # Сербский аналог
             kktRegId=self.serbian_data.tin,
             totalSum=total_cents,
-            ecashTotalSum=total_cents,  # Предполагаем безналичную оплату
+            ecashTotalSum=0 if is_cash else total_cents,
             operationType=1,  # Продажа
             taxationType=2,  # УСН доходы
             appliedTaxationType=2,

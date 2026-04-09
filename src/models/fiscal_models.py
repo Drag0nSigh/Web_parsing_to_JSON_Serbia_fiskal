@@ -209,6 +209,7 @@ class SerbianFiscalData(BaseModel):
     requested_by: str = Field(..., description="Затребован")
     invoice_type: str = Field(..., description="Тип чека")
     transaction_type: str = Field(..., description="Тип транзакции")
+    payment_method: str = Field(default="card", description="Способ оплаты: cash/card")
 
     # Статус
     status: str = Field(..., description="Статус чека")
