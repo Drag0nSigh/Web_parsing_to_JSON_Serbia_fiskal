@@ -37,15 +37,19 @@ class TestDatabaseInit:
         mock_db_manager.check_connection.assert_called_once()
         mock_db_manager.init_database.assert_called_once()
 
+    @patch("db.utils.time.sleep")
+    @patch("db.utils.time.monotonic")
     @patch("db.utils.db_manager")
-    def test_init_database_no_connection(self, mock_db_manager):
-        """Тест инициализации базы данных без подключения."""
+    def test_init_database_no_connection(self, mock_db_manager, mock_monotonic, mock_sleep):
+        """Тест инициализации базы данных без подключения (таймаут ожидания)."""
         mock_db_manager.check_connection.return_value = False
+        # deadline=120; два прохода while (0 и 2 < 120), затем 125 — выход без третьей проверки подключения
+        mock_monotonic.side_effect = [0, 0, 2, 125]
 
         result = init_database()
 
         assert result is False
-        mock_db_manager.check_connection.assert_called_once()
+        assert mock_db_manager.check_connection.call_count == 2
         mock_db_manager.init_database.assert_not_called()
 
     @patch("db.utils.db_manager")

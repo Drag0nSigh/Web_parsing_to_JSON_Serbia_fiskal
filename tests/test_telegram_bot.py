@@ -396,8 +396,8 @@ class TestTelegramBotMain:
         mock_app = Mock()
         mock_app_class.builder.return_value.token.return_value.build.return_value = mock_app
 
-        # Мокаем init_database чтобы не вызывать исключение
-        mock_init_db.return_value = None
+        # Мокаем init_database: успех (иначе main() завершится через sys.exit(1))
+        mock_init_db.return_value = True
 
         # Это обычно запустило бы бота, но мы просто тестируем настройку
         try:
@@ -416,14 +416,11 @@ class TestTelegramBotMain:
     @patch("bot_tg.telegram_bot.logger")
     def test_main_database_error(self, mock_logger, mock_init_db):
         """Тест главной функции с ошибкой инициализации базы данных."""
-        # Мокаем init_database чтобы вызвать исключение
         mock_init_db.side_effect = Exception("Database error")
 
-        # Должен вернуться рано при ошибке базы данных
-        result = main()
-        assert result is None
-
-        # Проверяем, что ошибка была залогирована
+        with pytest.raises(SystemExit) as exc:
+            main()
+        assert exc.value.code == 1
         mock_logger.error.assert_called_once()
         assert "Ошибка инициализации БД" in mock_logger.error.call_args[0][0]
 
@@ -432,8 +429,7 @@ class TestTelegramBotMain:
     @patch("bot_tg.telegram_bot.logger")
     def test_main_application_error(self, mock_logger, mock_app_class, mock_init_db):
         """Тест главной функции с ошибкой создания приложения."""
-        # Мокаем init_database чтобы успешно выполниться
-        mock_init_db.return_value = None
+        mock_init_db.return_value = True
 
         # Мокаем Application чтобы вызвать исключение
         mock_app_class.builder.return_value.token.return_value.build.side_effect = Exception("App error")

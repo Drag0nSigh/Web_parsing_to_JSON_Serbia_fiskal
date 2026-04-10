@@ -4,6 +4,7 @@
 
 import logging
 import os
+import sys
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -403,12 +404,13 @@ def main() -> None:
     logger.info("Запуск телеграм бота...")
 
     try:
-        # Инициализируем базу данных
-        init_database()
+        if not init_database():
+            logger.error("❌ Не удалось подготовить базу данных (см. логи выше)")
+            sys.exit(1)
         logger.info("✅ База данных инициализирована")
     except Exception as e:
         logger.error(f"❌ Ошибка инициализации БД: {e}")
-        return
+        sys.exit(1)
 
     try:
         # Создаем приложение

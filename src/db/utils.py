@@ -6,6 +6,8 @@
 """
 
 import logging
+import os
+import time
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
@@ -16,16 +18,23 @@ logger = logging.getLogger(__name__)
 
 
 def init_database() -> bool:
-    """Инициализация базы данных"""
+    """Инициализация базы данных (ожидание PostgreSQL после initdb/рестарта и создание таблиц)."""
     try:
         logger.info("🚀 Инициализация базы данных...")
 
-        # Проверяем подключение
-        if not db_manager.check_connection():
-            logger.error("❌ Нет подключения к базе данных")
+        max_wait = int(os.getenv("DB_INIT_MAX_WAIT", "120"))
+        interval = float(os.getenv("DB_INIT_RETRY_INTERVAL", "2"))
+        deadline = time.monotonic() + max_wait
+
+        while time.monotonic() < deadline:
+            if db_manager.check_connection():
+                break
+            logger.warning("⏳ PostgreSQL ещё не готов (после первого старта контейнер может перезапускаться), ждём %.1f с...", interval)
+            time.sleep(interval)
+        else:
+            logger.error("❌ Нет подключения к базе данных за %s с", max_wait)
             return False
 
-        # Инициализируем базу данных
         if db_manager.init_database():
             logger.info("✅ База данных успешно инициализирована")
             return True

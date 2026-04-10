@@ -66,7 +66,7 @@ class DatabaseManager:
             # Создаем фабрику сессий
             self.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
 
-            logger.info("✅ Подключение к базе данных установлено")
+            logger.info("✅ Движок БД создан; реальное подключение при первом запросе (см. pool_pre_ping)")
 
         except Exception as e:
             logger.error(f"❌ Ошибка подключения к базе данных: {e}")

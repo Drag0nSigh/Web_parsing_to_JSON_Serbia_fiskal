@@ -15,9 +15,10 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fiscal_user} -d ${POSTGRES_DB:-fiscal_data}"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
     networks:
       - fiscal_network
 
@@ -44,7 +45,8 @@ services:
       PYTHONUNBUFFERED: 1
       PYTHONDONTWRITEBYTECODE: 1
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     volumes:
       - ./log:/app/log
