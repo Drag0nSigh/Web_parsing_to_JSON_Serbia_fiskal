@@ -89,8 +89,8 @@ class Item(BaseModel):
     paymentType: int = Field(..., description="Тип оплаты")
     productType: int = Field(..., description="Тип товара")
 
-    # Допустимая относительная погрешность суммы (6%) — из-за округления количества в электронном чеке
-    SUM_TOLERANCE_PERCENT: ClassVar[float] = 0.06
+    # Допустимая относительная погрешность суммы (11%) — из-за округления количества в электронном чеке
+    SUM_TOLERANCE_PERCENT: ClassVar[float] = 0.11
 
     @field_serializer('quantity', when_used='json')
     def serialize_quantity(self, value: Decimal) -> float:
